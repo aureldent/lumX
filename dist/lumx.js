@@ -1,6 +1,6 @@
 /*
- LumX v1.7.41
- (c) 2014-2018 LumApps http://ui.lumapps.com
+ LumX 
+ (c) 2014-2019 LumApps http://ui.lumapps.com
  License: MIT
 */
 (function()
@@ -481,46 +481,41 @@
 
     function lxButton()
     {
-        var buttonClass;
-
         return {
             restrict: 'E',
             templateUrl: getTemplateUrl,
-            compile: compile,
+            link: link,
             replace: true,
             transclude: true
         };
 
-        function compile(element, attrs)
+        function link(scope, element, attrs)
         {
             setButtonStyle(element, attrs.lxSize, attrs.lxColor, attrs.lxType);
 
-            return function(scope, element, attrs)
+            attrs.$observe('lxSize', function(lxSize)
             {
-                attrs.$observe('lxSize', function(lxSize)
-                {
-                    setButtonStyle(element, lxSize, attrs.lxColor, attrs.lxType);
-                });
+                setButtonStyle(element, lxSize, attrs.lxColor, attrs.lxType);
+            });
 
-                attrs.$observe('lxColor', function(lxColor)
-                {
-                    setButtonStyle(element, attrs.lxSize, lxColor, attrs.lxType);
-                });
+            attrs.$observe('lxColor', function(lxColor)
+            {
+                setButtonStyle(element, attrs.lxSize, lxColor, attrs.lxType);
+            });
 
-                attrs.$observe('lxType', function(lxType)
-                {
-                    setButtonStyle(element, attrs.lxSize, attrs.lxColor, lxType);
-                });
+            attrs.$observe('lxType', function(lxType)
+            {
+                setButtonStyle(element, attrs.lxSize, attrs.lxColor, lxType);
+            });
 
-                element.on('click', function(event)
+            element.on('click', function(event)
+            {
+                if (attrs.disabled === true)
                 {
-                    if (attrs.disabled === true)
-                    {
-                        event.preventDefault();
-                        event.stopImmediatePropagation();
-                    }
-                });
-            };
+                    event.preventDefault();
+                    event.stopImmediatePropagation();
+                }
+            });
         }
 
         function getTemplateUrl(element, attrs)
@@ -535,19 +530,23 @@
 
         function setButtonStyle(element, size, color, type)
         {
-            var buttonBase = 'btn';
-            var buttonSize = angular.isDefined(size) ? size : 'm';
-            var buttonColor = angular.isDefined(color) ? color : 'primary';
-            var buttonType = angular.isDefined(type) ? type : 'raised';
+            element.removeClass('btn');
+            element.removeClass (function (index, className) {
+                return (className.match (/(^|\s)btn--\S+/g) || []).join(' ');
+            });
 
-            element.removeClass(buttonClass);
+            var buttonSize = angular.isDefined(size) ? 'btn--' + size : 'btn--m';
+            var buttonColor = angular.isDefined(color) ? 'btn--' + color : 'btn--primary';
+            var buttonType = angular.isDefined(type) ? 'btn--' + type : 'btn--raised';
 
-            buttonClass = buttonBase + ' btn--' + buttonSize + ' btn--' + buttonColor + ' btn--' + buttonType;
-
-            element.addClass(buttonClass);
+            element.addClass('btn');
+            element.addClass(buttonSize);
+            element.addClass(buttonColor);
+            element.addClass(buttonType);
         }
     }
 })();
+
 (function()
 {
     'use strict';
@@ -696,292 +695,6 @@
     }
 })();
 
-(function()
-{
-    'use strict';
-
-    angular
-        .module('lumx.data-table')
-        .directive('lxDataTable', lxDataTable);
-
-    function lxDataTable()
-    {
-        return {
-            restrict: 'E',
-            templateUrl: 'data-table.html',
-            scope:
-            {
-                border: '=?lxBorder',
-                bulk: '=?lxBulk',
-                selectable: '=?lxSelectable',
-                thumbnail: '=?lxThumbnail',
-                tbody: '=lxTbody',
-                thead: '=lxThead'
-            },
-            link: link,
-            controller: LxDataTableController,
-            controllerAs: 'lxDataTable',
-            bindToController: true,
-            transclude: true,
-            replace: true
-        };
-
-        function link(scope, element, attrs, ctrl)
-        {
-            attrs.$observe('id', function(_newId)
-            {
-                ctrl.id = _newId;
-            });
-        }
-    }
-
-    LxDataTableController.$inject = ['$rootScope', '$sce', '$scope'];
-
-    function LxDataTableController($rootScope, $sce, $scope)
-    {
-        var lxDataTable = this;
-
-        lxDataTable.areAllRowsSelected = areAllRowsSelected;
-        lxDataTable.border = angular.isUndefined(lxDataTable.border) ? true : lxDataTable.border;
-        lxDataTable.bulk = angular.isUndefined(lxDataTable.bulk) ? true : lxDataTable.bulk;
-        lxDataTable.sort = sort;
-        lxDataTable.toggle = toggle;
-        lxDataTable.toggleAllSelected = toggleAllSelected;
-
-        lxDataTable.$sce = $sce;
-        lxDataTable.allRowsSelected = false;
-        lxDataTable.selectedRows = [];
-
-        $scope.$on('lx-data-table__select', function(event, id, row)
-        {
-            if (id === lxDataTable.id && angular.isDefined(row))
-            {
-                if (angular.isArray(row) && row.length > 0)
-                {
-                    row = row[0];
-                }
-                _select(row);
-            }
-        });
-
-        $scope.$on('lx-data-table__select-all', function(event, id)
-        {
-            if (id === lxDataTable.id)
-            {
-                _selectAll();
-            }
-        });
-
-        $scope.$on('lx-data-table__unselect', function(event, id, row)
-        {
-            if (id === lxDataTable.id && angular.isDefined(row))
-            {
-                if (angular.isArray(row) && row.length > 0)
-                {
-                    row = row[0];
-                }
-                _unselect(row);
-            }
-        });
-
-        $scope.$on('lx-data-table__unselect-all', function(event, id)
-        {
-            if (id === lxDataTable.id)
-            {
-                _unselectAll();
-            }
-        });
-
-        ////////////
-
-        function _selectAll()
-        {
-            lxDataTable.selectedRows.length = 0;
-
-            for (var i = 0, len = lxDataTable.tbody.length; i < len; i++)
-            {
-                if (!lxDataTable.tbody[i].lxDataTableDisabled)
-                {
-                    lxDataTable.tbody[i].lxDataTableSelected = true;
-                    lxDataTable.selectedRows.push(lxDataTable.tbody[i]);
-                }
-            }
-
-            lxDataTable.allRowsSelected = true;
-
-            $rootScope.$broadcast('lx-data-table__unselected', lxDataTable.id, lxDataTable.selectedRows);
-        }
-
-        function _select(row)
-        {
-            toggle(row, true);
-        }
-
-        function _unselectAll()
-        {
-            for (var i = 0, len = lxDataTable.tbody.length; i < len; i++)
-            {
-                if (!lxDataTable.tbody[i].lxDataTableDisabled)
-                {
-                    lxDataTable.tbody[i].lxDataTableSelected = false;
-                }
-            }
-
-            lxDataTable.allRowsSelected = false;
-            lxDataTable.selectedRows.length = 0;
-
-            $rootScope.$broadcast('lx-data-table__selected', lxDataTable.id, lxDataTable.selectedRows);
-        }
-
-        function _unselect(row)
-        {
-            toggle(row, false);
-        }
-
-        ////////////
-
-        function areAllRowsSelected()
-        {
-            var displayedRows = 0;
-
-            for (var i = 0, len = lxDataTable.tbody.length; i < len; i++)
-            {
-                if (!lxDataTable.tbody[i].lxDataTableDisabled)
-                {
-                    displayedRows++;
-                }
-            }
-
-            if (displayedRows === lxDataTable.selectedRows.length)
-            {
-                lxDataTable.allRowsSelected = true;
-            }
-            else
-            {
-                lxDataTable.allRowsSelected = false;
-            }
-        }
-
-        function sort(_column)
-        {
-            if (!_column.sortable)
-            {
-                return;
-            }
-
-            for (var i = 0, len = lxDataTable.thead.length; i < len; i++)
-            {
-                if (lxDataTable.thead[i].sortable && lxDataTable.thead[i].name !== _column.name)
-                {
-                    lxDataTable.thead[i].sort = undefined;
-                }
-            }
-
-            if (!_column.sort || _column.sort === 'desc')
-            {
-                _column.sort = 'asc';
-            }
-            else
-            {
-                _column.sort = 'desc';
-            }
-
-            $rootScope.$broadcast('lx-data-table__sorted', lxDataTable.id, _column);
-        }
-
-        function toggle(_row, _newSelectedStatus)
-        {
-            if (_row.lxDataTableDisabled || !lxDataTable.selectable)
-            {
-                return;
-            }
-
-            _row.lxDataTableSelected = angular.isDefined(_newSelectedStatus) ? _newSelectedStatus : !_row.lxDataTableSelected;
-
-            if (_row.lxDataTableSelected)
-            {
-                // Make sure it's not already in.
-                if (lxDataTable.selectedRows.length === 0 || (lxDataTable.selectedRows.length && lxDataTable.selectedRows.indexOf(_row) === -1))
-                {
-                    lxDataTable.selectedRows.push(_row);
-                    lxDataTable.areAllRowsSelected();
-
-                    $rootScope.$broadcast('lx-data-table__selected', lxDataTable.id, lxDataTable.selectedRows, _row);
-                }
-            }
-            else
-            {
-                if (lxDataTable.selectedRows.length && lxDataTable.selectedRows.indexOf(_row) > -1)
-                {
-                    lxDataTable.selectedRows.splice(lxDataTable.selectedRows.indexOf(_row), 1);
-                    lxDataTable.allRowsSelected = false;
-
-                    $rootScope.$broadcast('lx-data-table__unselected', lxDataTable.id, lxDataTable.selectedRows, _row);
-                }
-            }
-        }
-
-        function toggleAllSelected()
-        {
-            if (!lxDataTable.bulk)
-            {
-                return;
-            }
-
-            if (lxDataTable.allRowsSelected)
-            {
-                _unselectAll();
-            }
-            else
-            {
-                _selectAll();
-            }
-        }
-    }
-})();
-
-(function()
-{
-    'use strict';
-
-    angular
-        .module('lumx.data-table')
-        .service('LxDataTableService', LxDataTableService);
-
-    LxDataTableService.$inject = ['$rootScope'];
-
-    function LxDataTableService($rootScope)
-    {
-        var service = this;
-
-        service.select = select;
-        service.selectAll = selectAll;
-        service.unselect = unselect;
-        service.unselectAll = unselectAll;
-
-        ////////////
-
-        function select(_dataTableId, row)
-        {
-            $rootScope.$broadcast('lx-data-table__select', _dataTableId, row);
-        }
-
-        function selectAll(_dataTableId)
-        {
-            $rootScope.$broadcast('lx-data-table__select-all', _dataTableId);
-        }
-
-        function unselect(_dataTableId, row)
-        {
-            $rootScope.$broadcast('lx-data-table__unselect', _dataTableId, row);
-        }
-
-        function unselectAll(_dataTableId)
-        {
-            $rootScope.$broadcast('lx-data-table__unselect-all', _dataTableId);
-        }
-    }
-})();
 (function()
 {
     'use strict';
@@ -1399,6 +1112,370 @@
         }
     }
 })();
+(function()
+{
+    'use strict';
+
+    angular
+        .module('lumx.data-table')
+        .directive('lxDataTable', lxDataTable);
+
+    function lxDataTable()
+    {
+        return {
+            restrict: 'E',
+            templateUrl: 'data-table.html',
+            scope:
+            {
+                activable: '=?lxActivable',
+                border: '=?lxBorder',
+                bulk: '=?lxBulk',
+                selectable: '=?lxSelectable',
+                thumbnail: '=?lxThumbnail',
+                tbody: '=lxTbody',
+                thead: '=lxThead'
+            },
+            link: link,
+            controller: LxDataTableController,
+            controllerAs: 'lxDataTable',
+            bindToController: true,
+            transclude: true,
+            replace: true
+        };
+
+        function link(scope, element, attrs, ctrl)
+        {
+            attrs.$observe('id', function(_newId)
+            {
+                ctrl.id = _newId;
+            });
+        }
+    }
+
+    LxDataTableController.$inject = ['$rootScope', '$sce', '$scope'];
+
+    function LxDataTableController($rootScope, $sce, $scope)
+    {
+        var lxDataTable = this;
+
+        lxDataTable.areAllRowsSelected = areAllRowsSelected;
+        lxDataTable.border = angular.isUndefined(lxDataTable.border) ? true : lxDataTable.border;
+        lxDataTable.bulk = angular.isUndefined(lxDataTable.bulk) ? true : lxDataTable.bulk;
+        lxDataTable.sort = sort;
+        lxDataTable.toggleActivation = toggleActivation;
+        lxDataTable.toggleAllSelected = toggleAllSelected;
+        lxDataTable.toggleSelection = toggleSelection;
+
+        lxDataTable.$sce = $sce;
+        lxDataTable.allRowsSelected = false;
+        lxDataTable.selectedRows = [];
+
+        $scope.$on('lx-data-table__select', function(event, id, row)
+        {
+            if (id === lxDataTable.id && angular.isDefined(row))
+            {
+                if (angular.isArray(row) && row.length > 0)
+                {
+                    row = row[0];
+                }
+                _select(row);
+            }
+        });
+
+        $scope.$on('lx-data-table__select-all', function(event, id)
+        {
+            if (id === lxDataTable.id)
+            {
+                _selectAll();
+            }
+        });
+
+        $scope.$on('lx-data-table__unselect', function(event, id, row)
+        {
+            if (id === lxDataTable.id && angular.isDefined(row))
+            {
+                if (angular.isArray(row) && row.length > 0)
+                {
+                    row = row[0];
+                }
+                _unselect(row);
+            }
+        });
+
+        $scope.$on('lx-data-table__unselect-all', function(event, id)
+        {
+            if (id === lxDataTable.id)
+            {
+                _unselectAll();
+            }
+        });
+
+        $scope.$on('lx-data-table__activate', function(event, id, row)
+        {
+            if (id === lxDataTable.id && angular.isDefined(row))
+            {
+                if (angular.isArray(row) && row.length > 0)
+                {
+                    row = row[0];
+                }
+                _activate(row);
+            }
+        });
+
+        $scope.$on('lx-data-table__deactivate', function(event, id, row)
+        {
+            if (id === lxDataTable.id && angular.isDefined(row))
+            {
+                if (angular.isArray(row) && row.length > 0)
+                {
+                    row = row[0];
+                }
+                _deactivate(row);
+            }
+        });
+
+        ////////////
+
+        function _activate(row)
+        {
+            toggleActivation(row, true);
+        }
+
+        function _deactivate(row)
+        {
+            toggleActivation(row, false);
+        }
+
+        function _select(row)
+        {
+            toggleSelection(row, true);
+        }
+
+        function _selectAll()
+        {
+            lxDataTable.selectedRows.length = 0;
+
+            for (var i = 0, len = lxDataTable.tbody.length; i < len; i++)
+            {
+                if (!lxDataTable.tbody[i].lxDataTableDisabled)
+                {
+                    lxDataTable.tbody[i].lxDataTableSelected = true;
+                    lxDataTable.selectedRows.push(lxDataTable.tbody[i]);
+                }
+            }
+
+            lxDataTable.allRowsSelected = true;
+
+            $rootScope.$broadcast('lx-data-table__unselected', lxDataTable.id, lxDataTable.selectedRows);
+        }
+
+        function _unselect(row)
+        {
+            toggleSelection(row, false);
+        }
+
+        function _unselectAll()
+        {
+            for (var i = 0, len = lxDataTable.tbody.length; i < len; i++)
+            {
+                if (!lxDataTable.tbody[i].lxDataTableDisabled)
+                {
+                    lxDataTable.tbody[i].lxDataTableSelected = false;
+                }
+            }
+
+            lxDataTable.allRowsSelected = false;
+            lxDataTable.selectedRows.length = 0;
+
+            $rootScope.$broadcast('lx-data-table__selected', lxDataTable.id, lxDataTable.selectedRows);
+        }
+
+        ////////////
+
+        function areAllRowsSelected()
+        {
+            var displayedRows = 0;
+
+            for (var i = 0, len = lxDataTable.tbody.length; i < len; i++)
+            {
+                if (!lxDataTable.tbody[i].lxDataTableDisabled)
+                {
+                    displayedRows++;
+                }
+            }
+
+            if (displayedRows === lxDataTable.selectedRows.length)
+            {
+                lxDataTable.allRowsSelected = true;
+            }
+            else
+            {
+                lxDataTable.allRowsSelected = false;
+            }
+        }
+
+        function sort(_column)
+        {
+            if (!_column.sortable)
+            {
+                return;
+            }
+
+            for (var i = 0, len = lxDataTable.thead.length; i < len; i++)
+            {
+                if (lxDataTable.thead[i].sortable && lxDataTable.thead[i].name !== _column.name)
+                {
+                    lxDataTable.thead[i].sort = undefined;
+                }
+            }
+
+            if (!_column.sort || _column.sort === 'desc')
+            {
+                _column.sort = 'asc';
+            }
+            else
+            {
+                _column.sort = 'desc';
+            }
+
+            $rootScope.$broadcast('lx-data-table__sorted', lxDataTable.id, _column);
+        }
+
+        function toggleActivation(_row, _newActivatedStatus)
+        {
+            if (_row.lxDataTableDisabled || !lxDataTable.activable)
+            {
+                return;
+            }
+
+            for (var i = 0, len = lxDataTable.tbody.length; i < len; i++)
+            {
+                if (lxDataTable.tbody.indexOf(_row) !== i)
+                {
+                    lxDataTable.tbody[i].lxDataTableActivated = false;
+                }
+            }
+
+            _row.lxDataTableActivated = !_row.lxDataTableActivated;
+
+            if (_row.lxDataTableActivated)
+            {
+                $rootScope.$broadcast('lx-data-table__activated', lxDataTable.id, _row);
+            }
+            else
+            {
+                $rootScope.$broadcast('lx-data-table__deactivated', lxDataTable.id, _row);
+            }
+        }
+
+        function toggleAllSelected()
+        {
+            if (!lxDataTable.bulk)
+            {
+                return;
+            }
+
+            if (lxDataTable.allRowsSelected)
+            {
+                _unselectAll();
+            }
+            else
+            {
+                _selectAll();
+            }
+        }
+
+        function toggleSelection(_row, _newSelectedStatus, _event)
+        {
+            if (_row.lxDataTableDisabled || !lxDataTable.selectable)
+            {
+                return;
+            }
+
+            if (angular.isDefined(_event)) {
+                _event.stopPropagation();
+            }
+
+            _row.lxDataTableSelected = angular.isDefined(_newSelectedStatus) ? _newSelectedStatus : !_row.lxDataTableSelected;
+
+            if (_row.lxDataTableSelected)
+            {
+                // Make sure it's not already in.
+                if (lxDataTable.selectedRows.length === 0 || (lxDataTable.selectedRows.length && lxDataTable.selectedRows.indexOf(_row) === -1))
+                {
+                    lxDataTable.selectedRows.push(_row);
+                    lxDataTable.areAllRowsSelected();
+
+                    $rootScope.$broadcast('lx-data-table__selected', lxDataTable.id, lxDataTable.selectedRows, _row);
+                }
+            }
+            else
+            {
+                if (lxDataTable.selectedRows.length && lxDataTable.selectedRows.indexOf(_row) > -1)
+                {
+                    lxDataTable.selectedRows.splice(lxDataTable.selectedRows.indexOf(_row), 1);
+                    lxDataTable.allRowsSelected = false;
+
+                    $rootScope.$broadcast('lx-data-table__unselected', lxDataTable.id, lxDataTable.selectedRows, _row);
+                }
+            }
+        }
+    }
+})();
+
+(function()
+{
+    'use strict';
+
+    angular
+        .module('lumx.data-table')
+        .service('LxDataTableService', LxDataTableService);
+
+    LxDataTableService.$inject = ['$rootScope'];
+
+    function LxDataTableService($rootScope)
+    {
+        var service = this;
+
+        service.select = select;
+        service.selectAll = selectAll;
+        service.unselect = unselect;
+        service.unselectAll = unselectAll;
+
+        ////////////
+
+        function select(_dataTableId, row)
+        {
+            $rootScope.$broadcast('lx-data-table__select', _dataTableId, row);
+        }
+
+        function selectAll(_dataTableId)
+        {
+            $rootScope.$broadcast('lx-data-table__select-all', _dataTableId);
+        }
+
+        function unselect(_dataTableId, row)
+        {
+            $rootScope.$broadcast('lx-data-table__unselect', _dataTableId, row);
+        }
+
+        function unselectAll(_dataTableId)
+        {
+            $rootScope.$broadcast('lx-data-table__unselect-all', _dataTableId);
+        }
+
+        function activate(_dataTableId, row)
+        {
+            $rootScope.$broadcast('lx-data-table__activate', _dataTableId, row);
+        }
+
+        function deactivate(_dataTableId, row)
+        {
+            $rootScope.$broadcast('lx-data-table__deactivate', _dataTableId, row);
+        }
+    }
+})();
+
 (function()
 {
     'use strict';
@@ -2939,6 +3016,85 @@
     'use strict';
 
     angular
+        .module('lumx.progress')
+        .directive('lxProgress', lxProgress);
+
+    function lxProgress()
+    {
+        return {
+            restrict: 'E',
+            templateUrl: 'progress.html',
+            scope:
+            {
+                lxColor: '@?',
+                lxDiameter: '@?',
+                lxType: '@',
+                lxValue: '@'
+            },
+            controller: LxProgressController,
+            controllerAs: 'lxProgress',
+            bindToController: true,
+            replace: true
+        };
+    }
+
+    function LxProgressController()
+    {
+        var lxProgress = this;
+
+        lxProgress.getCircularProgressValue = getCircularProgressValue;
+        lxProgress.getLinearProgressValue = getLinearProgressValue;
+        lxProgress.getProgressDiameter = getProgressDiameter;
+
+        ////////////
+
+        function getCircularProgressValue()
+        {
+            if (angular.isDefined(lxProgress.lxValue))
+            {
+                return {
+                    'stroke-dasharray': lxProgress.lxValue * 1.26 + ',200'
+                };
+            }
+        }
+
+        function getLinearProgressValue()
+        {
+            if (angular.isDefined(lxProgress.lxValue))
+            {
+                return {
+                    'transform': 'scale(' + lxProgress.lxValue / 100 + ', 1)'
+                };
+            }
+        }
+
+        function getProgressDiameter()
+        {
+            if (lxProgress.lxType === 'circular')
+            {
+                return {
+                    'transform': 'scale(' + parseInt(lxProgress.lxDiameter) / 100 + ')'
+                };
+            }
+
+            return;
+        }
+
+        function init()
+        {
+            lxProgress.lxDiameter = angular.isDefined(lxProgress.lxDiameter) ? lxProgress.lxDiameter : 100;
+            lxProgress.lxColor = angular.isDefined(lxProgress.lxColor) ? lxProgress.lxColor : 'primary';
+            lxProgress.lxClass = angular.isDefined(lxProgress.lxValue) ? 'progress-container--determinate' : 'progress-container--indeterminate';
+        }
+
+        this.$onInit = init;
+    }
+})();
+(function()
+{
+    'use strict';
+
+    angular
         .module('lumx.notification')
         .service('LxNotificationService', LxNotificationService);
 
@@ -3390,85 +3546,6 @@
     }
 })();
 
-(function()
-{
-    'use strict';
-
-    angular
-        .module('lumx.progress')
-        .directive('lxProgress', lxProgress);
-
-    function lxProgress()
-    {
-        return {
-            restrict: 'E',
-            templateUrl: 'progress.html',
-            scope:
-            {
-                lxColor: '@?',
-                lxDiameter: '@?',
-                lxType: '@',
-                lxValue: '@'
-            },
-            controller: LxProgressController,
-            controllerAs: 'lxProgress',
-            bindToController: true,
-            replace: true
-        };
-    }
-
-    function LxProgressController()
-    {
-        var lxProgress = this;
-
-        lxProgress.getCircularProgressValue = getCircularProgressValue;
-        lxProgress.getLinearProgressValue = getLinearProgressValue;
-        lxProgress.getProgressDiameter = getProgressDiameter;
-
-        ////////////
-
-        function getCircularProgressValue()
-        {
-            if (angular.isDefined(lxProgress.lxValue))
-            {
-                return {
-                    'stroke-dasharray': lxProgress.lxValue * 1.26 + ',200'
-                };
-            }
-        }
-
-        function getLinearProgressValue()
-        {
-            if (angular.isDefined(lxProgress.lxValue))
-            {
-                return {
-                    'transform': 'scale(' + lxProgress.lxValue / 100 + ', 1)'
-                };
-            }
-        }
-
-        function getProgressDiameter()
-        {
-            if (lxProgress.lxType === 'circular')
-            {
-                return {
-                    'transform': 'scale(' + parseInt(lxProgress.lxDiameter) / 100 + ')'
-                };
-            }
-
-            return;
-        }
-
-        function init()
-        {
-            lxProgress.lxDiameter = angular.isDefined(lxProgress.lxDiameter) ? lxProgress.lxDiameter : 100;
-            lxProgress.lxColor = angular.isDefined(lxProgress.lxColor) ? lxProgress.lxColor : 'primary';
-            lxProgress.lxClass = angular.isDefined(lxProgress.lxValue) ? 'progress-container--determinate' : 'progress-container--indeterminate';
-        }
-
-        this.$onInit = init;
-    }
-})();
 (function()
 {
     'use strict';
@@ -6236,6 +6313,375 @@
     'use strict';
 
     angular
+        .module('lumx.tabs')
+        .directive('lxTabs', lxTabs)
+        .directive('lxTab', lxTab)
+        .directive('lxTabsPanes', lxTabsPanes)
+        .directive('lxTabPane', lxTabPane);
+
+    function lxTabs()
+    {
+        return {
+            restrict: 'E',
+            templateUrl: 'tabs.html',
+            scope:
+            {
+                layout: '@?lxLayout',
+                theme: '@?lxTheme',
+                color: '@?lxColor',
+                indicator: '@?lxIndicator',
+                activeTab: '=?lxActiveTab',
+                panesId: '@?lxPanesId',
+                links: '=?lxLinks',
+                position: '@?lxPosition'
+            },
+            controller: LxTabsController,
+            controllerAs: 'lxTabs',
+            bindToController: true,
+            replace: true,
+            transclude: true
+        };
+    }
+
+    LxTabsController.$inject = ['LxUtils', '$element', '$scope', '$timeout'];
+
+    function LxTabsController(LxUtils, $element, $scope, $timeout)
+    {
+        var lxTabs = this;
+        var tabsLength;
+        var timer1;
+        var timer2;
+        var timer3;
+        var timer4;
+
+        lxTabs.removeTab = removeTab;
+        lxTabs.setActiveTab = setActiveTab;
+        lxTabs.setViewMode = setViewMode;
+        lxTabs.tabIsActive = tabIsActive;
+        lxTabs.updateTabs = updateTabs;
+
+        lxTabs.activeTab = angular.isDefined(lxTabs.activeTab) ? lxTabs.activeTab : 0;
+        lxTabs.color = angular.isDefined(lxTabs.color) ? lxTabs.color : 'primary';
+        lxTabs.indicator = angular.isDefined(lxTabs.indicator) ? lxTabs.indicator : 'accent';
+        lxTabs.layout = angular.isDefined(lxTabs.layout) ? lxTabs.layout : 'full';
+        lxTabs.tabs = [];
+        lxTabs.theme = angular.isDefined(lxTabs.theme) ? lxTabs.theme : 'light';
+        lxTabs.viewMode = angular.isDefined(lxTabs.links) ? 'separate' : 'gather';
+
+        $scope.$watch(function()
+        {
+            return lxTabs.activeTab;
+        }, function(_newActiveTab, _oldActiveTab)
+        {
+            timer1 = $timeout(function()
+            {
+                setIndicatorPosition(_oldActiveTab);
+
+                if (lxTabs.viewMode === 'separate')
+                {
+                    angular.element('#' + lxTabs.panesId).find('.tabs__pane').hide();
+                    angular.element('#' + lxTabs.panesId).find('.tabs__pane').eq(lxTabs.activeTab).show();
+                }
+            });
+        });
+
+        $scope.$watch(function()
+        {
+            return lxTabs.position;
+        }, function(_newPosition) {
+            lxTabs.bottomPosition = angular.isDefined(_newPosition) && (_newPosition === 'bottom');
+        });
+
+        $scope.$watch(function()
+        {
+            return lxTabs.links;
+        }, function(_newLinks)
+        {
+            lxTabs.viewMode = angular.isDefined(_newLinks) ? 'separate' : 'gather';
+
+            angular.forEach(_newLinks, function(link, index)
+            {
+                var tab = {
+                    uuid: (angular.isUndefined(link.uuid) || link.uuid.length === 0) ? LxUtils.generateUUID() : link.uuid,
+                    index: index,
+                    label: link.label,
+                    icon: link.icon,
+                    disabled: link.disabled
+                };
+
+                updateTabs(tab);
+            });
+        });
+
+        timer2 = $timeout(function()
+        {
+            tabsLength = lxTabs.tabs.length;
+        });
+
+        $scope.$on('$destroy', function()
+        {
+            $timeout.cancel(timer1);
+            $timeout.cancel(timer2);
+            $timeout.cancel(timer3);
+            $timeout.cancel(timer4);
+        });
+
+        ////////////
+
+        function removeTab(_tab)
+        {
+            lxTabs.tabs.splice(_tab.index, 1);
+
+            angular.forEach(lxTabs.tabs, function(tab, index)
+            {
+                tab.index = index;
+            });
+
+            if (lxTabs.activeTab === 0)
+            {
+                timer3 = $timeout(function()
+                {
+                    setIndicatorPosition();
+                });
+            }
+            else
+            {
+                setActiveTab(lxTabs.tabs[0]);
+            }
+        }
+
+        function setActiveTab(_tab)
+        {
+            if (!_tab.disabled)
+            {
+                lxTabs.activeTab = _tab.index;
+            }
+        }
+
+        function setIndicatorPosition(_previousActiveTab)
+        {
+            var direction = lxTabs.activeTab > _previousActiveTab ? 'right' : 'left';
+            var indicator = $element.find('.tabs__indicator');
+            var activeTab = $element.find('.tabs__link').eq(lxTabs.activeTab);
+            var indicatorLeft = activeTab.position().left;
+            var indicatorRight = $element.outerWidth() - (indicatorLeft + activeTab.outerWidth());
+
+            if (angular.isUndefined(_previousActiveTab))
+            {
+                indicator.css(
+                {
+                    left: indicatorLeft,
+                    right: indicatorRight
+                });
+            }
+            else
+            {
+                var animationProperties = {
+                    duration: 200,
+                    easing: 'easeOutQuint'
+                };
+
+                if (direction === 'left')
+                {
+                    indicator.velocity(
+                    {
+                        left: indicatorLeft
+                    }, animationProperties);
+
+                    indicator.velocity(
+                    {
+                        right: indicatorRight
+                    }, animationProperties);
+                }
+                else
+                {
+                    indicator.velocity(
+                    {
+                        right: indicatorRight
+                    }, animationProperties);
+
+                    indicator.velocity(
+                    {
+                        left: indicatorLeft
+                    }, animationProperties);
+                }
+            }
+        }
+
+        function setViewMode(_viewMode)
+        {
+            lxTabs.viewMode = _viewMode;
+        }
+
+        function tabIsActive(_index)
+        {
+            return lxTabs.activeTab === _index;
+        }
+
+        function updateTabs(_tab)
+        {
+            var newTab = true;
+
+            angular.forEach(lxTabs.tabs, function(tab)
+            {
+                if (tab.index === _tab.index)
+                {
+                    newTab = false;
+
+                    tab.uuid = _tab.uuid;
+                    tab.icon = _tab.icon;
+                    tab.label = _tab.label;
+                }
+            });
+
+            if (newTab)
+            {
+                lxTabs.tabs.push(_tab);
+
+                if (angular.isDefined(tabsLength))
+                {
+                    timer4 = $timeout(function()
+                    {
+                        setIndicatorPosition();
+                    });
+                }
+            }
+        }
+    }
+
+    function lxTab()
+    {
+        return {
+            restrict: 'E',
+            require: ['lxTab', '^lxTabs'],
+            templateUrl: 'tab.html',
+            scope:
+            {
+                ngDisabled: '=?'
+            },
+            link: link,
+            controller: LxTabController,
+            controllerAs: 'lxTab',
+            bindToController: true,
+            replace: true,
+            transclude: true
+        };
+
+        function link(scope, element, attrs, ctrls)
+        {
+            ctrls[0].init(ctrls[1], element.index());
+
+            attrs.$observe('lxLabel', function(_newLabel)
+            {
+                ctrls[0].setLabel(_newLabel);
+            });
+
+            attrs.$observe('lxIcon', function(_newIcon)
+            {
+                ctrls[0].setIcon(_newIcon);
+            });
+        }
+    }
+
+    LxTabController.$inject = ['$scope', 'LxUtils'];
+
+    function LxTabController($scope, LxUtils)
+    {
+        var lxTab = this;
+        var parentCtrl;
+        var tab = {
+            uuid: LxUtils.generateUUID(),
+            index: undefined,
+            label: undefined,
+            icon: undefined,
+            disabled: false
+        };
+
+        lxTab.init = init;
+        lxTab.setIcon = setIcon;
+        lxTab.setLabel = setLabel;
+        lxTab.tabIsActive = tabIsActive;
+
+        $scope.$watch(function()
+        {
+            return lxTab.ngDisabled;
+        }, function(_isDisabled)
+        {
+            if (_isDisabled)
+            {
+                tab.disabled = true;
+            }
+            else
+            {
+                tab.disabled = false;
+            }
+
+            parentCtrl.updateTabs(tab);
+        });
+
+        $scope.$on('$destroy', function()
+        {
+            parentCtrl.removeTab(tab);
+        });
+
+        ////////////
+
+        function init(_parentCtrl, _index)
+        {
+            parentCtrl = _parentCtrl;
+            tab.index = _index;
+
+            parentCtrl.updateTabs(tab);
+        }
+
+        function setIcon(_icon)
+        {
+            tab.icon = _icon;
+
+            parentCtrl.updateTabs(tab);
+        }
+
+        function setLabel(_label)
+        {
+            tab.label = _label;
+
+            parentCtrl.updateTabs(tab);
+        }
+
+        function tabIsActive()
+        {
+            return parentCtrl.tabIsActive(tab.index);
+        }
+    }
+
+    function lxTabsPanes()
+    {
+        return {
+            restrict: 'E',
+            templateUrl: 'tabs-panes.html',
+            scope: true,
+            replace: true,
+            transclude: true
+        };
+    }
+
+    function lxTabPane()
+    {
+        return {
+            restrict: 'E',
+            templateUrl: 'tab-pane.html',
+            scope: true,
+            replace: true,
+            transclude: true
+        };
+    }
+})();
+
+(function()
+{
+    'use strict';
+
+    angular
         .module('lumx.text-field')
         .directive('lxTextField', lxTextField);
 
@@ -6677,375 +7123,6 @@
                 tooltipLabel.text(_newValue);
             }
         }
-    }
-})();
-
-(function()
-{
-    'use strict';
-
-    angular
-        .module('lumx.tabs')
-        .directive('lxTabs', lxTabs)
-        .directive('lxTab', lxTab)
-        .directive('lxTabsPanes', lxTabsPanes)
-        .directive('lxTabPane', lxTabPane);
-
-    function lxTabs()
-    {
-        return {
-            restrict: 'E',
-            templateUrl: 'tabs.html',
-            scope:
-            {
-                layout: '@?lxLayout',
-                theme: '@?lxTheme',
-                color: '@?lxColor',
-                indicator: '@?lxIndicator',
-                activeTab: '=?lxActiveTab',
-                panesId: '@?lxPanesId',
-                links: '=?lxLinks',
-                position: '@?lxPosition'
-            },
-            controller: LxTabsController,
-            controllerAs: 'lxTabs',
-            bindToController: true,
-            replace: true,
-            transclude: true
-        };
-    }
-
-    LxTabsController.$inject = ['LxUtils', '$element', '$scope', '$timeout'];
-
-    function LxTabsController(LxUtils, $element, $scope, $timeout)
-    {
-        var lxTabs = this;
-        var tabsLength;
-        var timer1;
-        var timer2;
-        var timer3;
-        var timer4;
-
-        lxTabs.removeTab = removeTab;
-        lxTabs.setActiveTab = setActiveTab;
-        lxTabs.setViewMode = setViewMode;
-        lxTabs.tabIsActive = tabIsActive;
-        lxTabs.updateTabs = updateTabs;
-
-        lxTabs.activeTab = angular.isDefined(lxTabs.activeTab) ? lxTabs.activeTab : 0;
-        lxTabs.color = angular.isDefined(lxTabs.color) ? lxTabs.color : 'primary';
-        lxTabs.indicator = angular.isDefined(lxTabs.indicator) ? lxTabs.indicator : 'accent';
-        lxTabs.layout = angular.isDefined(lxTabs.layout) ? lxTabs.layout : 'full';
-        lxTabs.tabs = [];
-        lxTabs.theme = angular.isDefined(lxTabs.theme) ? lxTabs.theme : 'light';
-        lxTabs.viewMode = angular.isDefined(lxTabs.links) ? 'separate' : 'gather';
-
-        $scope.$watch(function()
-        {
-            return lxTabs.activeTab;
-        }, function(_newActiveTab, _oldActiveTab)
-        {
-            timer1 = $timeout(function()
-            {
-                setIndicatorPosition(_oldActiveTab);
-
-                if (lxTabs.viewMode === 'separate')
-                {
-                    angular.element('#' + lxTabs.panesId).find('.tabs__pane').hide();
-                    angular.element('#' + lxTabs.panesId).find('.tabs__pane').eq(lxTabs.activeTab).show();
-                }
-            });
-        });
-
-        $scope.$watch(function()
-        {
-            return lxTabs.position;
-        }, function(_newPosition) {
-            lxTabs.bottomPosition = angular.isDefined(_newPosition) && (_newPosition === 'bottom');
-        });
-
-        $scope.$watch(function()
-        {
-            return lxTabs.links;
-        }, function(_newLinks)
-        {
-            lxTabs.viewMode = angular.isDefined(_newLinks) ? 'separate' : 'gather';
-
-            angular.forEach(_newLinks, function(link, index)
-            {
-                var tab = {
-                    uuid: (angular.isUndefined(link.uuid) || link.uuid.length === 0) ? LxUtils.generateUUID() : link.uuid,
-                    index: index,
-                    label: link.label,
-                    icon: link.icon,
-                    disabled: link.disabled
-                };
-
-                updateTabs(tab);
-            });
-        });
-
-        timer2 = $timeout(function()
-        {
-            tabsLength = lxTabs.tabs.length;
-        });
-
-        $scope.$on('$destroy', function()
-        {
-            $timeout.cancel(timer1);
-            $timeout.cancel(timer2);
-            $timeout.cancel(timer3);
-            $timeout.cancel(timer4);
-        });
-
-        ////////////
-
-        function removeTab(_tab)
-        {
-            lxTabs.tabs.splice(_tab.index, 1);
-
-            angular.forEach(lxTabs.tabs, function(tab, index)
-            {
-                tab.index = index;
-            });
-
-            if (lxTabs.activeTab === 0)
-            {
-                timer3 = $timeout(function()
-                {
-                    setIndicatorPosition();
-                });
-            }
-            else
-            {
-                setActiveTab(lxTabs.tabs[0]);
-            }
-        }
-
-        function setActiveTab(_tab)
-        {
-            if (!_tab.disabled)
-            {
-                lxTabs.activeTab = _tab.index;
-            }
-        }
-
-        function setIndicatorPosition(_previousActiveTab)
-        {
-            var direction = lxTabs.activeTab > _previousActiveTab ? 'right' : 'left';
-            var indicator = $element.find('.tabs__indicator');
-            var activeTab = $element.find('.tabs__link').eq(lxTabs.activeTab);
-            var indicatorLeft = activeTab.position().left;
-            var indicatorRight = $element.outerWidth() - (indicatorLeft + activeTab.outerWidth());
-
-            if (angular.isUndefined(_previousActiveTab))
-            {
-                indicator.css(
-                {
-                    left: indicatorLeft,
-                    right: indicatorRight
-                });
-            }
-            else
-            {
-                var animationProperties = {
-                    duration: 200,
-                    easing: 'easeOutQuint'
-                };
-
-                if (direction === 'left')
-                {
-                    indicator.velocity(
-                    {
-                        left: indicatorLeft
-                    }, animationProperties);
-
-                    indicator.velocity(
-                    {
-                        right: indicatorRight
-                    }, animationProperties);
-                }
-                else
-                {
-                    indicator.velocity(
-                    {
-                        right: indicatorRight
-                    }, animationProperties);
-
-                    indicator.velocity(
-                    {
-                        left: indicatorLeft
-                    }, animationProperties);
-                }
-            }
-        }
-
-        function setViewMode(_viewMode)
-        {
-            lxTabs.viewMode = _viewMode;
-        }
-
-        function tabIsActive(_index)
-        {
-            return lxTabs.activeTab === _index;
-        }
-
-        function updateTabs(_tab)
-        {
-            var newTab = true;
-
-            angular.forEach(lxTabs.tabs, function(tab)
-            {
-                if (tab.index === _tab.index)
-                {
-                    newTab = false;
-
-                    tab.uuid = _tab.uuid;
-                    tab.icon = _tab.icon;
-                    tab.label = _tab.label;
-                }
-            });
-
-            if (newTab)
-            {
-                lxTabs.tabs.push(_tab);
-
-                if (angular.isDefined(tabsLength))
-                {
-                    timer4 = $timeout(function()
-                    {
-                        setIndicatorPosition();
-                    });
-                }
-            }
-        }
-    }
-
-    function lxTab()
-    {
-        return {
-            restrict: 'E',
-            require: ['lxTab', '^lxTabs'],
-            templateUrl: 'tab.html',
-            scope:
-            {
-                ngDisabled: '=?'
-            },
-            link: link,
-            controller: LxTabController,
-            controllerAs: 'lxTab',
-            bindToController: true,
-            replace: true,
-            transclude: true
-        };
-
-        function link(scope, element, attrs, ctrls)
-        {
-            ctrls[0].init(ctrls[1], element.index());
-
-            attrs.$observe('lxLabel', function(_newLabel)
-            {
-                ctrls[0].setLabel(_newLabel);
-            });
-
-            attrs.$observe('lxIcon', function(_newIcon)
-            {
-                ctrls[0].setIcon(_newIcon);
-            });
-        }
-    }
-
-    LxTabController.$inject = ['$scope', 'LxUtils'];
-
-    function LxTabController($scope, LxUtils)
-    {
-        var lxTab = this;
-        var parentCtrl;
-        var tab = {
-            uuid: LxUtils.generateUUID(),
-            index: undefined,
-            label: undefined,
-            icon: undefined,
-            disabled: false
-        };
-
-        lxTab.init = init;
-        lxTab.setIcon = setIcon;
-        lxTab.setLabel = setLabel;
-        lxTab.tabIsActive = tabIsActive;
-
-        $scope.$watch(function()
-        {
-            return lxTab.ngDisabled;
-        }, function(_isDisabled)
-        {
-            if (_isDisabled)
-            {
-                tab.disabled = true;
-            }
-            else
-            {
-                tab.disabled = false;
-            }
-
-            parentCtrl.updateTabs(tab);
-        });
-
-        $scope.$on('$destroy', function()
-        {
-            parentCtrl.removeTab(tab);
-        });
-
-        ////////////
-
-        function init(_parentCtrl, _index)
-        {
-            parentCtrl = _parentCtrl;
-            tab.index = _index;
-
-            parentCtrl.updateTabs(tab);
-        }
-
-        function setIcon(_icon)
-        {
-            tab.icon = _icon;
-
-            parentCtrl.updateTabs(tab);
-        }
-
-        function setLabel(_label)
-        {
-            tab.label = _label;
-
-            parentCtrl.updateTabs(tab);
-        }
-
-        function tabIsActive()
-        {
-            return parentCtrl.tabIsActive(tab.index);
-        }
-    }
-
-    function lxTabsPanes()
-    {
-        return {
-            restrict: 'E',
-            templateUrl: 'tabs-panes.html',
-            scope: true,
-            replace: true,
-            transclude: true
-        };
-    }
-
-    function lxTabPane()
-    {
-        return {
-            restrict: 'E',
-            templateUrl: 'tab-pane.html',
-            scope: true,
-            replace: true,
-            transclude: true
-        };
     }
 })();
 
@@ -7600,12 +7677,26 @@ angular.module("lumx.data-table").run(['$templateCache', function(a) { a.put('da
     '                       \'data-table--thumbnail\': lxDataTable.thumbnail }">\n' +
     '        <thead>\n' +
     '            <tr ng-class="{ \'data-table__selectable-row\': lxDataTable.selectable,\n' +
-    '                            \'data-table__selectable-row--is-selected\': lxDataTable.selectable && lxDataTable.allRowsSelected }">\n' +
-    '                <th ng-if="lxDataTable.thumbnail"\n' +
-    '                    ng-click="lxDataTable.toggleAllSelected()"></th>\n' +
-    '                <th ng-click="lxDataTable.toggleAllSelected()"\n' +
-    '                    ng-if="lxDataTable.selectable && !lxDataTable.thumbnail"></th>\n' +
-    '                <th ng-class=" { \'data-table__sortable-cell\': th.sortable,\n' +
+    '                            \'data-table__selectable-row--is-selected\': lxDataTable.selectable && lxDataTable.allRowsSelected, }">\n' +
+    '                <th align="center" ng-if="lxDataTable.thumbnail">\n' +
+    '                    <lx-button class="data-table__checkbox"\n' +
+    '                               lx-type="icon" lx-color="{{ lxDataTable.allRowsSelected ? \'accent\' : \'grey\' }}"\n' +
+    '                               ng-click="lxDataTable.toggleAllSelected()"\n' +
+    '                               ng-if="lxDataTable.selectable">\n' +
+    '                        <lx-icon lx-id="checkbox-blank-outline" ng-if="!lxDataTable.allRowsSelected"></lx-icon>\n' +
+    '                        <lx-icon lx-id="checkbox-marked" ng-if="lxDataTable.allRowsSelected"></lx-icon>\n' +
+    '                    </lx-button>\n' +
+    '                </th>\n' +
+    '                <th align="center" ng-if="lxDataTable.selectable && !lxDataTable.thumbnail">\n' +
+    '                    <lx-button class="data-table__checkbox"\n' +
+    '                               lx-type="icon" lx-color="{{ lxDataTable.allRowsSelected ? \'accent\' : \'grey\' }}"\n' +
+    '                               ng-click="lxDataTable.toggleAllSelected()">\n' +
+    '                        <lx-icon lx-id="checkbox-blank-outline" ng-if="!lxDataTable.allRowsSelected"></lx-icon>\n' +
+    '                        <lx-icon lx-id="checkbox-marked" ng-if="lxDataTable.allRowsSelected"></lx-icon>\n' +
+    '                    </lx-button>\n' +
+    '                </th>\n' +
+    '                <th align="left"\n' +
+    '                    ng-class=" { \'data-table__sortable-cell\': th.sortable,\n' +
     '                                 \'data-table__sortable-cell--asc\': th.sortable && th.sort === \'asc\',\n' +
     '                                 \'data-table__sortable-cell--desc\': th.sortable && th.sort === \'desc\' }"\n' +
     '                    ng-click="lxDataTable.sort(th)"\n' +
@@ -7620,14 +7711,33 @@ angular.module("lumx.data-table").run(['$templateCache', function(a) { a.put('da
     '        <tbody>\n' +
     '            <tr ng-class="{ \'data-table__selectable-row\': lxDataTable.selectable,\n' +
     '                            \'data-table__selectable-row--is-disabled\': lxDataTable.selectable && tr.lxDataTableDisabled,\n' +
-    '                            \'data-table__selectable-row--is-selected\': lxDataTable.selectable && tr.lxDataTableSelected }"\n' +
+    '                            \'data-table__selectable-row--is-selected\': lxDataTable.selectable && tr.lxDataTableSelected,\n' +
+    '                            \'data-table__activable-row\': lxDataTable.activable,\n' +
+    '                            \'data-table__activable-row--is-activated\': lxDataTable.activable && tr.lxDataTableActivated }"\n' +
     '                ng-repeat="tr in lxDataTable.tbody"\n' +
-    '                ng-click="lxDataTable.toggle(tr)">\n' +
-    '                <td ng-if="lxDataTable.thumbnail" align="center">\n' +
-    '                    <div ng-if="lxDataTable.thead[0].format" ng-bind-html="lxDataTable.$sce.trustAsHtml(lxDataTable.thead[0].format(tr))"></div>\n' +
+    '                ng-click="lxDataTable.toggleActivation(tr)">\n' +
+    '                <td align="center" ng-if="lxDataTable.thumbnail">\n' +
+    '                    <div class="data-table__thumbnail" ng-if="lxDataTable.thead[0].format" ng-bind-html="lxDataTable.$sce.trustAsHtml(lxDataTable.thead[0].format(tr))"></div>\n' +
+    '\n' +
+    '                    <lx-button class="data-table__checkbox"\n' +
+    '                               lx-type="icon" lx-color="{{ tr.lxDataTableSelected ? \'accent\' : \'black\' }}"\n' +
+    '                               ng-click="lxDataTable.toggleSelection(tr, undefined, $event)"\n' +
+    '                               ng-if="lxDataTable.selectable && !tr.lxDataTableDisabled">\n' +
+    '                        <lx-icon lx-id="checkbox-blank-outline" ng-if="!tr.lxDataTableSelected"></lx-icon>\n' +
+    '                        <lx-icon lx-id="checkbox-marked" ng-if="tr.lxDataTableSelected"></lx-icon>\n' +
+    '                    </lx-button>\n' +
     '                </td>\n' +
-    '                <td ng-if="lxDataTable.selectable && !lxDataTable.thumbnail"></td>\n' +
-    '                <td ng-repeat="th in lxDataTable.thead track by $index"\n' +
+    '                <td align="center" ng-if="lxDataTable.selectable && !lxDataTable.thumbnail">\n' +
+    '                    <lx-button class="data-table__checkbox"\n' +
+    '                               lx-type="icon" lx-color="{{ tr.lxDataTableSelected ? \'accent\' : \'black\' }}"\n' +
+    '                               ng-click="lxDataTable.toggleSelection(tr, undefined, $event)"\n' +
+    '                               ng-disabled="tr.lxDataTableDisabled">\n' +
+    '                        <lx-icon lx-id="checkbox-blank-outline" ng-if="!tr.lxDataTableSelected"></lx-icon>\n' +
+    '                        <lx-icon lx-id="checkbox-marked" ng-if="tr.lxDataTableSelected"></lx-icon>\n' +
+    '                    </lx-button>\n' +
+    '                </td>\n' +
+    '                <td align="left"\n' +
+    '                    ng-repeat="th in lxDataTable.thead track by $index"\n' +
     '                    ng-if="!lxDataTable.thumbnail || (lxDataTable.thumbnail && $index != 0)">\n' +
     '                    <span ng-if="!th.format">{{ tr[th.name] }}</span>\n' +
     '                    <div ng-if="th.format" ng-bind-html="lxDataTable.$sce.trustAsHtml(th.format(tr))"></div>\n' +
