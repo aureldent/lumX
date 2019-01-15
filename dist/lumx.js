@@ -476,6 +476,82 @@
     'use strict';
 
     angular
+        .module('lumx.button')
+        .directive('lxButton', lxButton);
+
+    function lxButton()
+    {
+        return {
+            restrict: 'E',
+            templateUrl: getTemplateUrl,
+            link: link,
+            replace: true,
+            transclude: true
+        };
+
+        function link(scope, element, attrs)
+        {
+            setButtonStyle(element, attrs.lxSize, attrs.lxColor, attrs.lxType);
+
+            attrs.$observe('lxSize', function(lxSize)
+            {
+                setButtonStyle(element, lxSize, attrs.lxColor, attrs.lxType);
+            });
+
+            attrs.$observe('lxColor', function(lxColor)
+            {
+                setButtonStyle(element, attrs.lxSize, lxColor, attrs.lxType);
+            });
+
+            attrs.$observe('lxType', function(lxType)
+            {
+                setButtonStyle(element, attrs.lxSize, attrs.lxColor, lxType);
+            });
+
+            element.on('click', function(event)
+            {
+                if (attrs.disabled === true)
+                {
+                    event.preventDefault();
+                    event.stopImmediatePropagation();
+                }
+            });
+        }
+
+        function getTemplateUrl(element, attrs)
+        {
+            return isAnchor(attrs) ? 'link.html' : 'button.html';
+        }
+
+        function isAnchor(attrs)
+        {
+            return angular.isDefined(attrs.href) || angular.isDefined(attrs.ngHref) || angular.isDefined(attrs.ngLink) || angular.isDefined(attrs.uiSref);
+        }
+
+        function setButtonStyle(element, size, color, type)
+        {
+            element.removeClass('btn');
+            element.removeClass (function (index, className) {
+                return (className.match (/(^|\s)btn--\S+/g) || []).join(' ');
+            });
+
+            var buttonSize = angular.isDefined(size) ? 'btn--' + size : 'btn--m';
+            var buttonColor = angular.isDefined(color) ? 'btn--' + color : 'btn--primary';
+            var buttonType = angular.isDefined(type) ? 'btn--' + type : 'btn--raised';
+
+            element.addClass('btn');
+            element.addClass(buttonSize);
+            element.addClass(buttonColor);
+            element.addClass(buttonType);
+        }
+    }
+})();
+
+(function()
+{
+    'use strict';
+
+    angular
         .module('lumx.checkbox')
         .directive('lxCheckbox', lxCheckbox)
         .directive('lxCheckboxLabel', lxCheckboxLabel)
@@ -616,82 +692,6 @@
             transclude: true,
             replace: true
         };
-    }
-})();
-
-(function()
-{
-    'use strict';
-
-    angular
-        .module('lumx.button')
-        .directive('lxButton', lxButton);
-
-    function lxButton()
-    {
-        return {
-            restrict: 'E',
-            templateUrl: getTemplateUrl,
-            link: link,
-            replace: true,
-            transclude: true
-        };
-
-        function link(scope, element, attrs)
-        {
-            setButtonStyle(element, attrs.lxSize, attrs.lxColor, attrs.lxType);
-
-            attrs.$observe('lxSize', function(lxSize)
-            {
-                setButtonStyle(element, lxSize, attrs.lxColor, attrs.lxType);
-            });
-
-            attrs.$observe('lxColor', function(lxColor)
-            {
-                setButtonStyle(element, attrs.lxSize, lxColor, attrs.lxType);
-            });
-
-            attrs.$observe('lxType', function(lxType)
-            {
-                setButtonStyle(element, attrs.lxSize, attrs.lxColor, lxType);
-            });
-
-            element.on('click', function(event)
-            {
-                if (attrs.disabled === true)
-                {
-                    event.preventDefault();
-                    event.stopImmediatePropagation();
-                }
-            });
-        }
-
-        function getTemplateUrl(element, attrs)
-        {
-            return isAnchor(attrs) ? 'link.html' : 'button.html';
-        }
-
-        function isAnchor(attrs)
-        {
-            return angular.isDefined(attrs.href) || angular.isDefined(attrs.ngHref) || angular.isDefined(attrs.ngLink) || angular.isDefined(attrs.uiSref);
-        }
-
-        function setButtonStyle(element, size, color, type)
-        {
-            element.removeClass('btn');
-            element.removeClass (function (index, className) {
-                return (className.match (/(^|\s)btn--\S+/g) || []).join(' ');
-            });
-
-            var buttonSize = angular.isDefined(size) ? 'btn--' + size : 'btn--m';
-            var buttonColor = angular.isDefined(color) ? 'btn--' + color : 'btn--primary';
-            var buttonType = angular.isDefined(type) ? 'btn--' + type : 'btn--raised';
-
-            element.addClass('btn');
-            element.addClass(buttonSize);
-            element.addClass(buttonColor);
-            element.addClass(buttonType);
-        }
     }
 })();
 
@@ -1059,423 +1059,6 @@
     }
 })();
 
-(function()
-{
-    'use strict';
-
-    angular
-        .module('lumx.date-picker')
-        .directive('lxDatePicker', lxDatePicker);
-
-    lxDatePicker.$inject = ['LxDatePickerService', 'LxUtils'];
-
-    function lxDatePicker(LxDatePickerService, LxUtils)
-    {
-        return {
-            restrict: 'AE',
-            templateUrl: 'date-picker.html',
-            scope:
-            {
-                autoClose: '=?lxAutoClose',
-                callback: '&?lxCallback',
-                color: '@?lxColor',
-                escapeClose: '=?lxEscapeClose',
-                inputFormat: '@?lxInputFormat',
-                maxDate: '=?lxMaxDate',
-                ngModel: '=',
-                minDate: '=?lxMinDate',
-                locale: '@lxLocale'
-            },
-            link: link,
-            controller: LxDatePickerController,
-            controllerAs: 'lxDatePicker',
-            bindToController: true,
-            replace: true,
-            transclude: true
-        };
-
-        function link(scope, element, attrs)
-        {
-            if (angular.isDefined(attrs.id))
-            {
-                attrs.$observe('id', function(_newId)
-                {
-                    scope.lxDatePicker.pickerId = _newId;
-                    LxDatePickerService.registerScope(scope.lxDatePicker.pickerId, scope);
-                });
-            }
-            else
-            {
-                scope.lxDatePicker.pickerId = LxUtils.generateUUID();
-                LxDatePickerService.registerScope(scope.lxDatePicker.pickerId, scope);
-            }
-        }
-    }
-
-    LxDatePickerController.$inject = ['$element', '$scope', '$timeout', '$transclude', 'LxDatePickerService', 'LxUtils'];
-
-    function LxDatePickerController($element, $scope, $timeout, $transclude, LxDatePickerService, LxUtils)
-    {
-        var lxDatePicker = this;
-        var input;
-        var modelController;
-        var timer1;
-        var timer2;
-        var watcher1;
-        var watcher2;
-
-        lxDatePicker.closeDatePicker = closeDatePicker;
-        lxDatePicker.displayYearSelection = displayYearSelection;
-        lxDatePicker.hideYearSelection = hideYearSelection;
-        lxDatePicker.getDateFormatted = getDateFormatted;
-        lxDatePicker.nextMonth = nextMonth;
-        lxDatePicker.openDatePicker = openDatePicker;
-        lxDatePicker.previousMonth = previousMonth;
-        lxDatePicker.select = select;
-        lxDatePicker.selectYear = selectYear;
-
-        lxDatePicker.autoClose = angular.isDefined(lxDatePicker.autoClose) ? lxDatePicker.autoClose : true;
-        lxDatePicker.color = angular.isDefined(lxDatePicker.color) ? lxDatePicker.color : 'primary';
-        lxDatePicker.element = $element.find('.lx-date-picker');
-        lxDatePicker.escapeClose = angular.isDefined(lxDatePicker.escapeClose) ? lxDatePicker.escapeClose : true;
-        lxDatePicker.isOpen = false;
-        lxDatePicker.moment = moment;
-        lxDatePicker.yearSelection = false;
-        lxDatePicker.uuid = LxUtils.generateUUID();
-
-        $transclude(function(clone)
-        {
-            if (clone.length)
-            {
-                lxDatePicker.hasInput = true;
-
-                timer1 = $timeout(function()
-                {
-                    input = $element.find('.lx-date-input input');
-                    modelController = input.data('$ngModelController');
-
-                    watcher2 = $scope.$watch(function()
-                    {
-                        return modelController.$viewValue;
-                    }, function(newValue, oldValue)
-                    {
-                        if (angular.isUndefined(newValue))
-                        {
-                            lxDatePicker.ngModel = undefined;
-                        }
-                    });
-                });
-            }
-        });
-
-        watcher1 = $scope.$watch(function()
-        {
-            return lxDatePicker.ngModel;
-        }, init);
-
-        $scope.$on('$destroy', function()
-        {
-            $timeout.cancel(timer1);
-            $timeout.cancel(timer2);
-
-            if (angular.isFunction(watcher1))
-            {
-                watcher1();
-            }
-
-            if (angular.isFunction(watcher2))
-            {
-                watcher2();
-            }
-        });
-
-        ////////////
-
-        function closeDatePicker()
-        {
-            LxDatePickerService.close(lxDatePicker.pickerId);
-        }
-
-        function displayYearSelection()
-        {
-            lxDatePicker.yearSelection = true;
-
-            timer2 = $timeout(function()
-            {
-                var yearSelector = angular.element('.lx-date-picker__year-selector');
-                var activeYear = yearSelector.find('.lx-date-picker__year--is-active');
-
-                yearSelector.scrollTop(yearSelector.scrollTop() + activeYear.position().top - yearSelector.height() / 2 + activeYear.height() / 2);
-            });
-        }
-
-        function hideYearSelection()
-        {
-            lxDatePicker.yearSelection = false;
-        }
-
-        function generateCalendar()
-        {
-            lxDatePicker.days = [];
-
-            var previousDay = angular.copy(lxDatePicker.ngModelMoment).date(0);
-            var firstDayOfMonth = angular.copy(lxDatePicker.ngModelMoment).date(1);
-            var lastDayOfMonth = firstDayOfMonth.clone().endOf('month');
-            var maxDays = lastDayOfMonth.date();
-
-            lxDatePicker.emptyFirstDays = [];
-
-            for (var i = firstDayOfMonth.day() === 0 ? 6 : firstDayOfMonth.day() - 1; i > 0; i--)
-            {
-                lxDatePicker.emptyFirstDays.push(
-                {});
-            }
-
-            for (var j = 0; j < maxDays; j++)
-            {
-                var date = angular.copy(previousDay.add(1, 'days'));
-
-                date.selected = angular.isDefined(lxDatePicker.ngModel) && date.isSame(lxDatePicker.ngModel, 'day');
-                date.today = date.isSame(moment(), 'day');
-
-                if (angular.isDefined(lxDatePicker.minDate))
-                {
-                    var minDate = (angular.isString(lxDatePicker.minDate)) ? new Date(lxDatePicker.minDate) : lxDatePicker.minDate;
-                    if (date.toDate() < minDate)
-                    {
-                        date.disabled = true;
-                    }
-                }
-
-                if (angular.isDefined(lxDatePicker.maxDate))
-                {
-                    var maxDate = (angular.isString(lxDatePicker.maxDate)) ? new Date(lxDatePicker.maxDate) : lxDatePicker.maxDate;
-                    if (date.toDate() > maxDate)
-                    {
-                        date.disabled = true;
-                    }
-                }
-
-                lxDatePicker.days.push(date);
-            }
-
-            lxDatePicker.emptyLastDays = [];
-
-            for (var k = 7 - (lastDayOfMonth.day() === 0 ? 7 : lastDayOfMonth.day()); k > 0; k--)
-            {
-                lxDatePicker.emptyLastDays.push(
-                {});
-            }
-        }
-
-        function getDateFormatted()
-        {
-            var dateFormatted = lxDatePicker.ngModelMoment.format('llll').replace(lxDatePicker.ngModelMoment.format('LT'), '').trim().replace(lxDatePicker.ngModelMoment.format('YYYY'), '').trim();
-            var dateFormattedLastChar = dateFormatted.slice(-1);
-
-            if (dateFormattedLastChar === ',')
-            {
-                dateFormatted = dateFormatted.slice(0, -1);
-            }
-
-            return dateFormatted;
-        }
-
-        function init()
-        {
-            moment.locale(lxDatePicker.locale);
-
-            lxDatePicker.ngModelMoment = angular.isDefined(lxDatePicker.ngModel) ? moment(angular.copy(lxDatePicker.ngModel)) : moment();
-            lxDatePicker.days = [];
-            lxDatePicker.daysOfWeek = [moment.weekdaysMin(1), moment.weekdaysMin(2), moment.weekdaysMin(3), moment.weekdaysMin(4), moment.weekdaysMin(5), moment.weekdaysMin(6), moment.weekdaysMin(0)];
-            lxDatePicker.years = [];
-
-            for (var y = moment().year() - 100; y <= moment().year() + 100; y++)
-            {
-                lxDatePicker.years.push(y);
-            }
-
-            generateCalendar();
-        }
-
-        function nextMonth()
-        {
-            lxDatePicker.ngModelMoment = lxDatePicker.ngModelMoment.add(1, 'month');
-
-            generateCalendar();
-        }
-
-        function openDatePicker()
-        {
-            LxDatePickerService.open(lxDatePicker.pickerId);
-
-            generateCalendar();
-        }
-
-        function previousMonth()
-        {
-            lxDatePicker.ngModelMoment = lxDatePicker.ngModelMoment.subtract(1, 'month');
-
-            generateCalendar();
-        }
-
-        function select(_day)
-        {
-            if (!_day.disabled)
-            {
-                lxDatePicker.ngModel = _day.toDate();
-                lxDatePicker.ngModelMoment = angular.copy(_day);
-
-                if (angular.isDefined(lxDatePicker.callback))
-                {
-                    lxDatePicker.callback(
-                    {
-                        newDate: lxDatePicker.ngModel
-                    });
-                }
-
-                if (angular.isDefined(modelController) && lxDatePicker.inputFormat)
-                {
-                    modelController.$setViewValue(angular.copy(_day).format(lxDatePicker.inputFormat));
-                    modelController.$render();
-                }
-
-                generateCalendar();
-            }
-        }
-
-        function selectYear(_year)
-        {
-            lxDatePicker.yearSelection = false;
-
-            lxDatePicker.ngModelMoment = lxDatePicker.ngModelMoment.year(_year);
-
-            generateCalendar();
-        }
-    }
-})();
-
-(function()
-{
-    'use strict';
-
-    angular
-        .module('lumx.date-picker')
-        .service('LxDatePickerService', LxDatePickerService);
-
-    LxDatePickerService.$inject = ['$rootScope', '$timeout', 'LxDepthService', 'LxEventSchedulerService'];
-
-    function LxDatePickerService($rootScope, $timeout, LxDepthService, LxEventSchedulerService)
-    {
-        var service = this;
-        var activeDatePickerId;
-        var datePickerFilter;
-        var idEventScheduler;
-        var scopeMap = {};
-
-        service.close = closeDatePicker;
-        service.open = openDatePicker;
-        service.registerScope = registerScope;
-
-        ////////////
-
-        function closeDatePicker(_datePickerId)
-        {
-            if (angular.isDefined(idEventScheduler))
-            {
-                LxEventSchedulerService.unregister(idEventScheduler);
-                idEventScheduler = undefined;
-            }
-
-            activeDatePickerId = undefined;
-
-            $rootScope.$broadcast('lx-date-picker__close-start', _datePickerId);
-
-            datePickerFilter.removeClass('lx-date-picker-filter--is-shown');
-            scopeMap[_datePickerId].element.removeClass('lx-date-picker--is-shown');
-
-            $timeout(function()
-            {
-                angular.element('body').removeClass('no-scroll-date-picker-' + scopeMap[_datePickerId].uuid);
-
-                datePickerFilter.remove();
-
-                scopeMap[_datePickerId].element
-                    .hide()
-                    .appendTo(scopeMap[_datePickerId].elementParent);
-
-                scopeMap[_datePickerId].isOpen = false;
-                $rootScope.$broadcast('lx-date-picker__close-end', _datePickerId);
-            }, 600);
-        }
-
-        function onKeyUp(_event)
-        {
-            if (_event.keyCode == 27 && angular.isDefined(activeDatePickerId))
-            {
-                closeDatePicker(activeDatePickerId);
-            }
-
-            _event.stopPropagation();
-        }
-
-        function openDatePicker(_datePickerId)
-        {
-            LxDepthService.register();
-
-            activeDatePickerId = _datePickerId;
-
-            angular.element('body').addClass('no-scroll-date-picker-' + scopeMap[_datePickerId].uuid);
-
-            datePickerFilter = angular.element('<div/>',
-            {
-                class: 'lx-date-picker-filter'
-            });
-
-            datePickerFilter
-                .css('z-index', LxDepthService.getDepth())
-                .appendTo('body');
-
-            if (scopeMap[activeDatePickerId].autoClose)
-            {
-                datePickerFilter.on('click', function()
-                {
-                    closeDatePicker(activeDatePickerId);
-                });
-            }
-
-            if (scopeMap[activeDatePickerId].escapeClose)
-            {
-                idEventScheduler = LxEventSchedulerService.register('keyup', onKeyUp);
-            }
-
-            scopeMap[activeDatePickerId].element
-                .css('z-index', LxDepthService.getDepth() + 1)
-                .appendTo('body')
-                .show();
-
-            $timeout(function()
-            {
-                $rootScope.$broadcast('lx-date-picker__open-start', activeDatePickerId);
-
-                scopeMap[activeDatePickerId].isOpen = true;
-
-                datePickerFilter.addClass('lx-date-picker-filter--is-shown');
-                scopeMap[activeDatePickerId].element.addClass('lx-date-picker--is-shown');
-            }, 100);
-
-            $timeout(function()
-            {
-                $rootScope.$broadcast('lx-date-picker__open-end', activeDatePickerId);
-            }, 700);
-        }
-
-        function registerScope(_datePickerId, _datePickerScope)
-        {
-            scopeMap[_datePickerId] = _datePickerScope.lxDatePicker;
-        }
-    }
-})();
 (function()
 {
     'use strict';
@@ -2862,6 +2445,423 @@
     'use strict';
 
     angular
+        .module('lumx.date-picker')
+        .directive('lxDatePicker', lxDatePicker);
+
+    lxDatePicker.$inject = ['LxDatePickerService', 'LxUtils'];
+
+    function lxDatePicker(LxDatePickerService, LxUtils)
+    {
+        return {
+            restrict: 'AE',
+            templateUrl: 'date-picker.html',
+            scope:
+            {
+                autoClose: '=?lxAutoClose',
+                callback: '&?lxCallback',
+                color: '@?lxColor',
+                escapeClose: '=?lxEscapeClose',
+                inputFormat: '@?lxInputFormat',
+                maxDate: '=?lxMaxDate',
+                ngModel: '=',
+                minDate: '=?lxMinDate',
+                locale: '@lxLocale'
+            },
+            link: link,
+            controller: LxDatePickerController,
+            controllerAs: 'lxDatePicker',
+            bindToController: true,
+            replace: true,
+            transclude: true
+        };
+
+        function link(scope, element, attrs)
+        {
+            if (angular.isDefined(attrs.id))
+            {
+                attrs.$observe('id', function(_newId)
+                {
+                    scope.lxDatePicker.pickerId = _newId;
+                    LxDatePickerService.registerScope(scope.lxDatePicker.pickerId, scope);
+                });
+            }
+            else
+            {
+                scope.lxDatePicker.pickerId = LxUtils.generateUUID();
+                LxDatePickerService.registerScope(scope.lxDatePicker.pickerId, scope);
+            }
+        }
+    }
+
+    LxDatePickerController.$inject = ['$element', '$scope', '$timeout', '$transclude', 'LxDatePickerService', 'LxUtils'];
+
+    function LxDatePickerController($element, $scope, $timeout, $transclude, LxDatePickerService, LxUtils)
+    {
+        var lxDatePicker = this;
+        var input;
+        var modelController;
+        var timer1;
+        var timer2;
+        var watcher1;
+        var watcher2;
+
+        lxDatePicker.closeDatePicker = closeDatePicker;
+        lxDatePicker.displayYearSelection = displayYearSelection;
+        lxDatePicker.hideYearSelection = hideYearSelection;
+        lxDatePicker.getDateFormatted = getDateFormatted;
+        lxDatePicker.nextMonth = nextMonth;
+        lxDatePicker.openDatePicker = openDatePicker;
+        lxDatePicker.previousMonth = previousMonth;
+        lxDatePicker.select = select;
+        lxDatePicker.selectYear = selectYear;
+
+        lxDatePicker.autoClose = angular.isDefined(lxDatePicker.autoClose) ? lxDatePicker.autoClose : true;
+        lxDatePicker.color = angular.isDefined(lxDatePicker.color) ? lxDatePicker.color : 'primary';
+        lxDatePicker.element = $element.find('.lx-date-picker');
+        lxDatePicker.escapeClose = angular.isDefined(lxDatePicker.escapeClose) ? lxDatePicker.escapeClose : true;
+        lxDatePicker.isOpen = false;
+        lxDatePicker.moment = moment;
+        lxDatePicker.yearSelection = false;
+        lxDatePicker.uuid = LxUtils.generateUUID();
+
+        $transclude(function(clone)
+        {
+            if (clone.length)
+            {
+                lxDatePicker.hasInput = true;
+
+                timer1 = $timeout(function()
+                {
+                    input = $element.find('.lx-date-input input');
+                    modelController = input.data('$ngModelController');
+
+                    watcher2 = $scope.$watch(function()
+                    {
+                        return modelController.$viewValue;
+                    }, function(newValue, oldValue)
+                    {
+                        if (angular.isUndefined(newValue))
+                        {
+                            lxDatePicker.ngModel = undefined;
+                        }
+                    });
+                });
+            }
+        });
+
+        watcher1 = $scope.$watch(function()
+        {
+            return lxDatePicker.ngModel;
+        }, init);
+
+        $scope.$on('$destroy', function()
+        {
+            $timeout.cancel(timer1);
+            $timeout.cancel(timer2);
+
+            if (angular.isFunction(watcher1))
+            {
+                watcher1();
+            }
+
+            if (angular.isFunction(watcher2))
+            {
+                watcher2();
+            }
+        });
+
+        ////////////
+
+        function closeDatePicker()
+        {
+            LxDatePickerService.close(lxDatePicker.pickerId);
+        }
+
+        function displayYearSelection()
+        {
+            lxDatePicker.yearSelection = true;
+
+            timer2 = $timeout(function()
+            {
+                var yearSelector = angular.element('.lx-date-picker__year-selector');
+                var activeYear = yearSelector.find('.lx-date-picker__year--is-active');
+
+                yearSelector.scrollTop(yearSelector.scrollTop() + activeYear.position().top - yearSelector.height() / 2 + activeYear.height() / 2);
+            });
+        }
+
+        function hideYearSelection()
+        {
+            lxDatePicker.yearSelection = false;
+        }
+
+        function generateCalendar()
+        {
+            lxDatePicker.days = [];
+
+            var previousDay = angular.copy(lxDatePicker.ngModelMoment).date(0);
+            var firstDayOfMonth = angular.copy(lxDatePicker.ngModelMoment).date(1);
+            var lastDayOfMonth = firstDayOfMonth.clone().endOf('month');
+            var maxDays = lastDayOfMonth.date();
+
+            lxDatePicker.emptyFirstDays = [];
+
+            for (var i = firstDayOfMonth.day() === 0 ? 6 : firstDayOfMonth.day() - 1; i > 0; i--)
+            {
+                lxDatePicker.emptyFirstDays.push(
+                {});
+            }
+
+            for (var j = 0; j < maxDays; j++)
+            {
+                var date = angular.copy(previousDay.add(1, 'days'));
+
+                date.selected = angular.isDefined(lxDatePicker.ngModel) && date.isSame(lxDatePicker.ngModel, 'day');
+                date.today = date.isSame(moment(), 'day');
+
+                if (angular.isDefined(lxDatePicker.minDate))
+                {
+                    var minDate = (angular.isString(lxDatePicker.minDate)) ? new Date(lxDatePicker.minDate) : lxDatePicker.minDate;
+                    if (date.toDate() < minDate)
+                    {
+                        date.disabled = true;
+                    }
+                }
+
+                if (angular.isDefined(lxDatePicker.maxDate))
+                {
+                    var maxDate = (angular.isString(lxDatePicker.maxDate)) ? new Date(lxDatePicker.maxDate) : lxDatePicker.maxDate;
+                    if (date.toDate() > maxDate)
+                    {
+                        date.disabled = true;
+                    }
+                }
+
+                lxDatePicker.days.push(date);
+            }
+
+            lxDatePicker.emptyLastDays = [];
+
+            for (var k = 7 - (lastDayOfMonth.day() === 0 ? 7 : lastDayOfMonth.day()); k > 0; k--)
+            {
+                lxDatePicker.emptyLastDays.push(
+                {});
+            }
+        }
+
+        function getDateFormatted()
+        {
+            var dateFormatted = lxDatePicker.ngModelMoment.format('llll').replace(lxDatePicker.ngModelMoment.format('LT'), '').trim().replace(lxDatePicker.ngModelMoment.format('YYYY'), '').trim();
+            var dateFormattedLastChar = dateFormatted.slice(-1);
+
+            if (dateFormattedLastChar === ',')
+            {
+                dateFormatted = dateFormatted.slice(0, -1);
+            }
+
+            return dateFormatted;
+        }
+
+        function init()
+        {
+            moment.locale(lxDatePicker.locale);
+
+            lxDatePicker.ngModelMoment = angular.isDefined(lxDatePicker.ngModel) ? moment(angular.copy(lxDatePicker.ngModel)) : moment();
+            lxDatePicker.days = [];
+            lxDatePicker.daysOfWeek = [moment.weekdaysMin(1), moment.weekdaysMin(2), moment.weekdaysMin(3), moment.weekdaysMin(4), moment.weekdaysMin(5), moment.weekdaysMin(6), moment.weekdaysMin(0)];
+            lxDatePicker.years = [];
+
+            for (var y = moment().year() - 100; y <= moment().year() + 100; y++)
+            {
+                lxDatePicker.years.push(y);
+            }
+
+            generateCalendar();
+        }
+
+        function nextMonth()
+        {
+            lxDatePicker.ngModelMoment = lxDatePicker.ngModelMoment.add(1, 'month');
+
+            generateCalendar();
+        }
+
+        function openDatePicker()
+        {
+            LxDatePickerService.open(lxDatePicker.pickerId);
+
+            generateCalendar();
+        }
+
+        function previousMonth()
+        {
+            lxDatePicker.ngModelMoment = lxDatePicker.ngModelMoment.subtract(1, 'month');
+
+            generateCalendar();
+        }
+
+        function select(_day)
+        {
+            if (!_day.disabled)
+            {
+                lxDatePicker.ngModel = _day.toDate();
+                lxDatePicker.ngModelMoment = angular.copy(_day);
+
+                if (angular.isDefined(lxDatePicker.callback))
+                {
+                    lxDatePicker.callback(
+                    {
+                        newDate: lxDatePicker.ngModel
+                    });
+                }
+
+                if (angular.isDefined(modelController) && lxDatePicker.inputFormat)
+                {
+                    modelController.$setViewValue(angular.copy(_day).format(lxDatePicker.inputFormat));
+                    modelController.$render();
+                }
+
+                generateCalendar();
+            }
+        }
+
+        function selectYear(_year)
+        {
+            lxDatePicker.yearSelection = false;
+
+            lxDatePicker.ngModelMoment = lxDatePicker.ngModelMoment.year(_year);
+
+            generateCalendar();
+        }
+    }
+})();
+
+(function()
+{
+    'use strict';
+
+    angular
+        .module('lumx.date-picker')
+        .service('LxDatePickerService', LxDatePickerService);
+
+    LxDatePickerService.$inject = ['$rootScope', '$timeout', 'LxDepthService', 'LxEventSchedulerService'];
+
+    function LxDatePickerService($rootScope, $timeout, LxDepthService, LxEventSchedulerService)
+    {
+        var service = this;
+        var activeDatePickerId;
+        var datePickerFilter;
+        var idEventScheduler;
+        var scopeMap = {};
+
+        service.close = closeDatePicker;
+        service.open = openDatePicker;
+        service.registerScope = registerScope;
+
+        ////////////
+
+        function closeDatePicker(_datePickerId)
+        {
+            if (angular.isDefined(idEventScheduler))
+            {
+                LxEventSchedulerService.unregister(idEventScheduler);
+                idEventScheduler = undefined;
+            }
+
+            activeDatePickerId = undefined;
+
+            $rootScope.$broadcast('lx-date-picker__close-start', _datePickerId);
+
+            datePickerFilter.removeClass('lx-date-picker-filter--is-shown');
+            scopeMap[_datePickerId].element.removeClass('lx-date-picker--is-shown');
+
+            $timeout(function()
+            {
+                angular.element('body').removeClass('no-scroll-date-picker-' + scopeMap[_datePickerId].uuid);
+
+                datePickerFilter.remove();
+
+                scopeMap[_datePickerId].element
+                    .hide()
+                    .appendTo(scopeMap[_datePickerId].elementParent);
+
+                scopeMap[_datePickerId].isOpen = false;
+                $rootScope.$broadcast('lx-date-picker__close-end', _datePickerId);
+            }, 600);
+        }
+
+        function onKeyUp(_event)
+        {
+            if (_event.keyCode == 27 && angular.isDefined(activeDatePickerId))
+            {
+                closeDatePicker(activeDatePickerId);
+            }
+
+            _event.stopPropagation();
+        }
+
+        function openDatePicker(_datePickerId)
+        {
+            LxDepthService.register();
+
+            activeDatePickerId = _datePickerId;
+
+            angular.element('body').addClass('no-scroll-date-picker-' + scopeMap[_datePickerId].uuid);
+
+            datePickerFilter = angular.element('<div/>',
+            {
+                class: 'lx-date-picker-filter'
+            });
+
+            datePickerFilter
+                .css('z-index', LxDepthService.getDepth())
+                .appendTo('body');
+
+            if (scopeMap[activeDatePickerId].autoClose)
+            {
+                datePickerFilter.on('click', function()
+                {
+                    closeDatePicker(activeDatePickerId);
+                });
+            }
+
+            if (scopeMap[activeDatePickerId].escapeClose)
+            {
+                idEventScheduler = LxEventSchedulerService.register('keyup', onKeyUp);
+            }
+
+            scopeMap[activeDatePickerId].element
+                .css('z-index', LxDepthService.getDepth() + 1)
+                .appendTo('body')
+                .show();
+
+            $timeout(function()
+            {
+                $rootScope.$broadcast('lx-date-picker__open-start', activeDatePickerId);
+
+                scopeMap[activeDatePickerId].isOpen = true;
+
+                datePickerFilter.addClass('lx-date-picker-filter--is-shown');
+                scopeMap[activeDatePickerId].element.addClass('lx-date-picker--is-shown');
+            }, 100);
+
+            $timeout(function()
+            {
+                $rootScope.$broadcast('lx-date-picker__open-end', activeDatePickerId);
+            }, 700);
+        }
+
+        function registerScope(_datePickerId, _datePickerScope)
+        {
+            scopeMap[_datePickerId] = _datePickerScope.lxDatePicker;
+        }
+    }
+})();
+(function()
+{
+    'use strict';
+
+    angular
         .module('lumx.file-input')
         .directive('lxFileInput', lxFileInput);
 
@@ -4182,6 +4182,525 @@
             itemSelected = false;
 
             return _newValue;
+        }
+    }
+})();
+
+(function()
+{
+    'use strict';
+
+    angular
+        .module('lumx.stepper')
+        .directive('lxStepper', lxStepper)
+        .directive('lxStep', lxStep)
+        .directive('lxStepNav', lxStepNav);
+
+    /* Stepper */
+    function lxStepper()
+    {
+        return {
+            restrict: 'E',
+            templateUrl: 'stepper.html',
+            scope: {
+                cancel: '&?lxCancel',
+                complete: '&lxComplete',
+                controls: '=?lxShowControls',
+                id: '@?lxId',
+                isLinear: '=?lxIsLinear',
+                labels: '=?lxLabels',
+                layout: '@?lxLayout'
+            },
+            controller: LxStepperController,
+            controllerAs: 'lxStepper',
+            bindToController: true,
+            transclude: true
+        };
+    }
+
+    LxStepperController.$inject = ['$scope'];
+
+    function LxStepperController($scope)
+    {
+        var lxStepper = this;
+
+        var _classes = [];
+        var _defaultValues = {
+            isLinear: true,
+            labels: {
+                'back': 'Back',
+                'cancel': 'Cancel',
+                'continue': 'Continue',
+                'optional': 'Optional'
+            },
+            layout: 'horizontal'
+        };
+
+        lxStepper.addStep = addStep;
+        lxStepper.getClasses = getClasses;
+        lxStepper.goToStep = goToStep;
+        lxStepper.isComplete = isComplete;
+        lxStepper.updateStep = updateStep;
+
+        lxStepper.controls = angular.isDefined(lxStepper.controls) ? lxStepper.controls : true;
+        lxStepper.activeIndex = 0;
+        lxStepper.isLinear = angular.isDefined(lxStepper.isLinear) ? lxStepper.isLinear : _defaultValues.isLinear;
+        lxStepper.labels = angular.isDefined(lxStepper.labels) ? lxStepper.labels : _defaultValues.labels;
+        lxStepper.layout = angular.isDefined(lxStepper.layout) ? lxStepper.layout : _defaultValues.layout;
+        lxStepper.steps = [];
+
+        ////////////
+
+        function addStep(step)
+        {
+            lxStepper.steps.push(step);
+        }
+
+        function getClasses()
+        {
+            _classes.length = 0;
+
+            _classes.push('lx-stepper--layout-' + lxStepper.layout);
+
+            if (lxStepper.isLinear)
+            {
+                _classes.push('lx-stepper--is-linear');
+            }
+
+            var step = lxStepper.steps[lxStepper.activeIndex];
+            if (angular.isDefined(step))
+            {
+                if (step.feedback)
+                {
+                    _classes.push('lx-stepper--step-has-feedback');
+                }
+
+                if (step.isLoading)
+                {
+                    _classes.push('lx-stepper--step-is-loading');
+                }
+            }
+
+            return _classes;
+        }
+
+        function goToStep(index, bypass)
+        {
+            // Check if the wanted step previous steps are optionals. 
+            // If so, check if the step before the last optional step is valid to allow going to the wanted step from the nav (only if linear stepper).
+            var stepBeforeLastOptionalStep;
+            if (!bypass && lxStepper.isLinear)
+            {
+                for (var i = index - 1; i >= 0; i--)
+                {
+                    if (angular.isDefined(lxStepper.steps[i]) && !lxStepper.steps[i].isOptional)
+                    {
+                        stepBeforeLastOptionalStep = lxStepper.steps[i];
+                        break;
+                    }
+                }
+
+                if(angular.isDefined(stepBeforeLastOptionalStep)) 
+                {
+                    // Check validity only if step is dirty and editable.
+                    if (!stepBeforeLastOptionalStep.pristine && angular.isFunction(stepBeforeLastOptionalStep.validator) && stepBeforeLastOptionalStep.isEditable) 
+                    {
+                        var validity = stepBeforeLastOptionalStep.validator();
+
+                        if (validity === true) 
+                        {
+                            stepBeforeLastOptionalStep.isValid = true;
+                        } 
+                        else 
+                        {
+                            stepBeforeLastOptionalStep.isValid = false;
+                            stepBeforeLastOptionalStep.errorMessage = validity;
+                        }
+                    }
+
+                    if (stepBeforeLastOptionalStep.isValid === true)
+                    {
+                        bypass = true;
+                    }
+                }
+            }
+            
+            // Check if the wanted step previous step is not valid to disallow going to the wanted step from the nav (only if linear stepper).
+            if (!bypass && lxStepper.isLinear && angular.isDefined(lxStepper.steps[index - 1]) && (angular.isUndefined(lxStepper.steps[index - 1].isValid) || lxStepper.steps[index - 1].isValid === false))
+            {
+                return;
+            }
+
+            if (index < lxStepper.steps.length)
+            {
+                lxStepper.activeIndex = parseInt(index);
+                lxStepper.steps[lxStepper.activeIndex].pristine = false;
+                $scope.$emit('lx-stepper__step', lxStepper.id, index, index === 0, index === (lxStepper.steps.length - 1));
+            }
+        }
+
+        function isComplete()
+        {
+            var countMandatory = 0;
+            var countValid = 0;
+
+            for (var i = 0, len = lxStepper.steps.length; i < len; i++)
+            {
+                if (!lxStepper.steps[i].isOptional)
+                {
+                    countMandatory++;
+
+                    if (lxStepper.steps[i].isValid === true) {
+                        countValid++;
+                    }
+                }
+            }
+
+            if (countValid === countMandatory)
+            {
+                lxStepper.complete();
+                return true;
+            }
+        }
+
+        function updateStep(step)
+        {
+            for (var i = 0, len = lxStepper.steps.length; i < len; i++)
+            {
+                if (lxStepper.steps[i].uuid === step.uuid)
+                {
+                    lxStepper.steps[i].index = step.index;
+                    lxStepper.steps[i].label = step.label;
+                    return;
+                }
+            }
+        }
+
+        $scope.$on('lx-stepper__go-to-step', function(event, id, stepIndex, bypass)
+        {
+            if (angular.isDefined(id) && id !== lxStepper.id)
+            {
+                return;
+            }
+
+            goToStep(stepIndex, bypass);
+        });
+        $scope.$on('lx-stepper__cancel', function(event, id)
+        {
+            if ((angular.isDefined(id) && id !== lxStepper.id) || !angular.isFunction(lxStepper.cancel))
+            {
+                return;
+            }
+
+            lxStepper.cancel();
+        });
+    }
+
+    /* Step */
+    function lxStep()
+    {
+        return {
+            restrict: 'E',
+            require: ['lxStep', '^lxStepper'],
+            templateUrl: 'step.html',
+            scope: {
+                feedback: '@?lxFeedback',
+                isEditable: '=?lxIsEditable',
+                isOptional: '=?lxIsOptional',
+                isValid: '=?lxIsValid',
+                label: '@lxLabel',
+                submit: '&?lxSubmit',
+                validate: '&?lxValidate'
+            },
+            link: link,
+            controller: LxStepController,
+            controllerAs: 'lxStep',
+            bindToController: true,
+            replace: true,
+            transclude: true
+        };
+
+        function link(scope, element, attrs, ctrls)
+        {
+            ctrls[0].init(ctrls[1], element.index());
+
+            attrs.$observe('lxFeedback', function(feedback)
+            {
+                ctrls[0].setFeedback(feedback);
+            });
+
+            attrs.$observe('lxLabel', function(label)
+            {
+                ctrls[0].setLabel(label);
+            });
+
+            attrs.$observe('lxIsEditable', function(isEditable)
+            {
+                ctrls[0].setIsEditable(isEditable);
+            });
+
+            attrs.$observe('lxIsOptional', function(isOptional)
+            {
+                ctrls[0].setIsOptional(isOptional);
+            });
+        }
+    }
+
+    LxStepController.$inject = ['$q', '$scope', 'LxNotificationService', 'LxUtils'];
+
+    function LxStepController($q, $scope, LxNotificationService, LxUtils)
+    {
+        var lxStep = this;
+
+        var _classes = [];
+        var _nextStepIndex;
+
+        lxStep.getClasses = getClasses;
+        lxStep.init = init;
+        lxStep.previousStep = previousStep;
+        lxStep.setFeedback = setFeedback;
+        lxStep.setLabel = setLabel;
+        lxStep.setIsEditable = setIsEditable;
+        lxStep.setIsOptional = setIsOptional;
+        lxStep.submitStep = submitStep;
+        
+        lxStep.step = {
+            errorMessage: undefined,
+            feedback: undefined,
+            index: undefined,
+            isEditable: false,
+            isLoading: false,
+            isOptional: false,
+            isValid: lxStep.isValid,
+            label: undefined,
+            pristine: true,
+            uuid: LxUtils.generateUUID(),
+            validator: undefined
+        };
+
+        ////////////
+
+        function getClasses()
+        {
+            _classes.length = 0;
+
+            if (lxStep.step.index === lxStep.parent.activeIndex)
+            {
+                _classes.push('lx-step--is-active');
+            }
+
+            return _classes;
+        }
+
+        function init(parent, index)
+        {
+            lxStep.parent = parent;
+            lxStep.step.index = index;
+            lxStep.step.validator = lxStep.validate;
+
+            lxStep.parent.addStep(lxStep.step);
+        }
+
+        function previousStep()
+        {
+            if (lxStep.step.index > 0)
+            {
+                lxStep.parent.goToStep(lxStep.step.index - 1);
+            }
+        }
+
+        function setFeedback(feedback)
+        {
+            lxStep.step.feedback = feedback;
+            updateParentStep();
+        }
+
+        function setLabel(label)
+        {
+            lxStep.step.label = label;
+            updateParentStep();
+        }
+
+        function setIsEditable(isEditable)
+        {
+            lxStep.step.isEditable = isEditable;
+            updateParentStep();
+        }
+
+        function setIsOptional(isOptional)
+        {
+            lxStep.step.isOptional = isOptional;
+            updateParentStep();
+        }
+
+        function submitStep()
+        {
+            if (lxStep.step.isValid === true && !lxStep.step.isEditable)
+            {
+                lxStep.parent.goToStep(_nextStepIndex, true);
+                return;
+            }
+
+            var validateFunction = lxStep.validate;
+            var validity = true;
+
+            if (angular.isFunction(validateFunction))
+            {
+                validity = validateFunction();
+            }
+
+            if (validity === true)
+            {
+                $scope.$emit('lx-stepper__step-loading', lxStep.parent.id, lxStep.step.index);
+
+                lxStep.step.isLoading = true;
+                updateParentStep();
+
+                var submitFunction = lxStep.submit;
+
+                if (!angular.isFunction(submitFunction))
+                {
+                    submitFunction = function()
+                    {
+                        return $q(function(resolve)
+                        {
+                            resolve();
+                        });
+                    };
+                }
+
+                var promise = submitFunction();
+
+                promise.then(function(nextStepIndex)
+                {
+                    lxStep.step.isValid = true;
+                    updateParentStep();
+
+                    var isComplete = lxStep.parent.isComplete();
+
+                    if (!isComplete)
+                    {
+                        _nextStepIndex = angular.isDefined(nextStepIndex) && nextStepIndex > lxStep.parent.activeIndex && (!lxStep.parent.isLinear || (lxStep.parent.isLinear && lxStep.parent.steps[nextStepIndex - 1].isOptional)) ? nextStepIndex : lxStep.step.index + 1;
+
+                        lxStep.parent.goToStep(_nextStepIndex, true);
+                    }
+                    else
+                    {
+                        $scope.$emit('lx-stepper__completed', lxStepper.id);
+                    }
+                }).catch(function(error)
+                {
+                    LxNotificationService.error(error);
+                }).finally(function()
+                {
+                    $scope.$emit('lx-stepper__step-loaded', lxStep.parent.id, lxStep.step.index);
+                    lxStep.step.isLoading = false;
+                    updateParentStep();
+                });
+            }
+            else
+            {
+                lxStep.step.isValid = false;
+                lxStep.step.errorMessage = validity;
+                updateParentStep();
+            }
+        }
+
+        function updateParentStep()
+        {
+            lxStep.parent.updateStep(lxStep.step);
+        }
+
+        $scope.$on('lx-stepper__submit-step', function(event, id, index)
+        {
+            if ((angular.isDefined(id) && id !== lxStep.parent.id) || index !== lxStep.step.index)
+            {
+                return;
+            }
+
+            submitStep();
+        });
+        $scope.$on('lx-stepper__previous-step', function(event, id, index)
+        {
+            if ((angular.isDefined(id) && id !== lxStep.parent.id) || index !== lxStep.step.index)
+            {
+                return;
+            }
+
+            previousStep();
+        });
+    }
+
+    /* Step nav */
+    function lxStepNav()
+    {
+        return {
+            restrict: 'E',
+            require: ['lxStepNav', '^lxStepper'],
+            templateUrl: 'step-nav.html',
+            scope: {
+                activeIndex: '@lxActiveIndex',
+                step: '=lxStep'
+            },
+            link: link,
+            controller: LxStepNavController,
+            controllerAs: 'lxStepNav',
+            bindToController: true,
+            replace: true,
+            transclude: false
+        };
+
+        function link(scope, element, attrs, ctrls)
+        {
+            ctrls[0].init(ctrls[1]);
+        }
+    }
+
+    function LxStepNavController()
+    {
+        var lxStepNav = this;
+
+        var _classes = [];
+
+        lxStepNav.getClasses = getClasses;
+        lxStepNav.init = init;
+
+        ////////////
+
+        function getClasses()
+        {
+            _classes.length = 0;
+
+            if (parseInt(lxStepNav.step.index) === parseInt(lxStepNav.activeIndex))
+            {
+                _classes.push('lx-step-nav--is-active');
+            }
+
+            if (lxStepNav.step.isValid === true)
+            {
+                _classes.push('lx-step-nav--is-valid');
+            }
+            else if (lxStepNav.step.isValid === false)
+            {
+                _classes.push('lx-step-nav--has-error');
+            }
+
+            if (lxStepNav.step.isEditable)
+            {
+                _classes.push('lx-step-nav--is-editable');
+            }
+
+            if (lxStepNav.step.isOptional)
+            {
+                _classes.push('lx-step-nav--is-optional');
+            }
+
+            return _classes;
+        }
+
+        function init(parent, index)
+        {
+            lxStepNav.parent = parent;
         }
     }
 })();
@@ -5635,525 +6154,6 @@
                     }
                 });
             }
-        }
-    }
-})();
-
-(function()
-{
-    'use strict';
-
-    angular
-        .module('lumx.stepper')
-        .directive('lxStepper', lxStepper)
-        .directive('lxStep', lxStep)
-        .directive('lxStepNav', lxStepNav);
-
-    /* Stepper */
-    function lxStepper()
-    {
-        return {
-            restrict: 'E',
-            templateUrl: 'stepper.html',
-            scope: {
-                cancel: '&?lxCancel',
-                complete: '&lxComplete',
-                controls: '=?lxShowControls',
-                id: '@?lxId',
-                isLinear: '=?lxIsLinear',
-                labels: '=?lxLabels',
-                layout: '@?lxLayout'
-            },
-            controller: LxStepperController,
-            controllerAs: 'lxStepper',
-            bindToController: true,
-            transclude: true
-        };
-    }
-
-    LxStepperController.$inject = ['$scope'];
-
-    function LxStepperController($scope)
-    {
-        var lxStepper = this;
-
-        var _classes = [];
-        var _defaultValues = {
-            isLinear: true,
-            labels: {
-                'back': 'Back',
-                'cancel': 'Cancel',
-                'continue': 'Continue',
-                'optional': 'Optional'
-            },
-            layout: 'horizontal'
-        };
-
-        lxStepper.addStep = addStep;
-        lxStepper.getClasses = getClasses;
-        lxStepper.goToStep = goToStep;
-        lxStepper.isComplete = isComplete;
-        lxStepper.updateStep = updateStep;
-
-        lxStepper.controls = angular.isDefined(lxStepper.controls) ? lxStepper.controls : true;
-        lxStepper.activeIndex = 0;
-        lxStepper.isLinear = angular.isDefined(lxStepper.isLinear) ? lxStepper.isLinear : _defaultValues.isLinear;
-        lxStepper.labels = angular.isDefined(lxStepper.labels) ? lxStepper.labels : _defaultValues.labels;
-        lxStepper.layout = angular.isDefined(lxStepper.layout) ? lxStepper.layout : _defaultValues.layout;
-        lxStepper.steps = [];
-
-        ////////////
-
-        function addStep(step)
-        {
-            lxStepper.steps.push(step);
-        }
-
-        function getClasses()
-        {
-            _classes.length = 0;
-
-            _classes.push('lx-stepper--layout-' + lxStepper.layout);
-
-            if (lxStepper.isLinear)
-            {
-                _classes.push('lx-stepper--is-linear');
-            }
-
-            var step = lxStepper.steps[lxStepper.activeIndex];
-            if (angular.isDefined(step))
-            {
-                if (step.feedback)
-                {
-                    _classes.push('lx-stepper--step-has-feedback');
-                }
-
-                if (step.isLoading)
-                {
-                    _classes.push('lx-stepper--step-is-loading');
-                }
-            }
-
-            return _classes;
-        }
-
-        function goToStep(index, bypass)
-        {
-            // Check if the wanted step previous steps are optionals. 
-            // If so, check if the step before the last optional step is valid to allow going to the wanted step from the nav (only if linear stepper).
-            var stepBeforeLastOptionalStep;
-            if (!bypass && lxStepper.isLinear)
-            {
-                for (var i = index - 1; i >= 0; i--)
-                {
-                    if (angular.isDefined(lxStepper.steps[i]) && !lxStepper.steps[i].isOptional)
-                    {
-                        stepBeforeLastOptionalStep = lxStepper.steps[i];
-                        break;
-                    }
-                }
-
-                if(angular.isDefined(stepBeforeLastOptionalStep)) 
-                {
-                    // Check validity only if step is dirty and editable.
-                    if (!stepBeforeLastOptionalStep.pristine && angular.isFunction(stepBeforeLastOptionalStep.validator) && stepBeforeLastOptionalStep.isEditable) 
-                    {
-                        var validity = stepBeforeLastOptionalStep.validator();
-
-                        if (validity === true) 
-                        {
-                            stepBeforeLastOptionalStep.isValid = true;
-                        } 
-                        else 
-                        {
-                            stepBeforeLastOptionalStep.isValid = false;
-                            stepBeforeLastOptionalStep.errorMessage = validity;
-                        }
-                    }
-
-                    if (stepBeforeLastOptionalStep.isValid === true)
-                    {
-                        bypass = true;
-                    }
-                }
-            }
-            
-            // Check if the wanted step previous step is not valid to disallow going to the wanted step from the nav (only if linear stepper).
-            if (!bypass && lxStepper.isLinear && angular.isDefined(lxStepper.steps[index - 1]) && (angular.isUndefined(lxStepper.steps[index - 1].isValid) || lxStepper.steps[index - 1].isValid === false))
-            {
-                return;
-            }
-
-            if (index < lxStepper.steps.length)
-            {
-                lxStepper.activeIndex = parseInt(index);
-                lxStepper.steps[lxStepper.activeIndex].pristine = false;
-                $scope.$emit('lx-stepper__step', lxStepper.id, index, index === 0, index === (lxStepper.steps.length - 1));
-            }
-        }
-
-        function isComplete()
-        {
-            var countMandatory = 0;
-            var countValid = 0;
-
-            for (var i = 0, len = lxStepper.steps.length; i < len; i++)
-            {
-                if (!lxStepper.steps[i].isOptional)
-                {
-                    countMandatory++;
-
-                    if (lxStepper.steps[i].isValid === true) {
-                        countValid++;
-                    }
-                }
-            }
-
-            if (countValid === countMandatory)
-            {
-                lxStepper.complete();
-                return true;
-            }
-        }
-
-        function updateStep(step)
-        {
-            for (var i = 0, len = lxStepper.steps.length; i < len; i++)
-            {
-                if (lxStepper.steps[i].uuid === step.uuid)
-                {
-                    lxStepper.steps[i].index = step.index;
-                    lxStepper.steps[i].label = step.label;
-                    return;
-                }
-            }
-        }
-
-        $scope.$on('lx-stepper__go-to-step', function(event, id, stepIndex, bypass)
-        {
-            if (angular.isDefined(id) && id !== lxStepper.id)
-            {
-                return;
-            }
-
-            goToStep(stepIndex, bypass);
-        });
-        $scope.$on('lx-stepper__cancel', function(event, id)
-        {
-            if ((angular.isDefined(id) && id !== lxStepper.id) || !angular.isFunction(lxStepper.cancel))
-            {
-                return;
-            }
-
-            lxStepper.cancel();
-        });
-    }
-
-    /* Step */
-    function lxStep()
-    {
-        return {
-            restrict: 'E',
-            require: ['lxStep', '^lxStepper'],
-            templateUrl: 'step.html',
-            scope: {
-                feedback: '@?lxFeedback',
-                isEditable: '=?lxIsEditable',
-                isOptional: '=?lxIsOptional',
-                isValid: '=?lxIsValid',
-                label: '@lxLabel',
-                submit: '&?lxSubmit',
-                validate: '&?lxValidate'
-            },
-            link: link,
-            controller: LxStepController,
-            controllerAs: 'lxStep',
-            bindToController: true,
-            replace: true,
-            transclude: true
-        };
-
-        function link(scope, element, attrs, ctrls)
-        {
-            ctrls[0].init(ctrls[1], element.index());
-
-            attrs.$observe('lxFeedback', function(feedback)
-            {
-                ctrls[0].setFeedback(feedback);
-            });
-
-            attrs.$observe('lxLabel', function(label)
-            {
-                ctrls[0].setLabel(label);
-            });
-
-            attrs.$observe('lxIsEditable', function(isEditable)
-            {
-                ctrls[0].setIsEditable(isEditable);
-            });
-
-            attrs.$observe('lxIsOptional', function(isOptional)
-            {
-                ctrls[0].setIsOptional(isOptional);
-            });
-        }
-    }
-
-    LxStepController.$inject = ['$q', '$scope', 'LxNotificationService', 'LxUtils'];
-
-    function LxStepController($q, $scope, LxNotificationService, LxUtils)
-    {
-        var lxStep = this;
-
-        var _classes = [];
-        var _nextStepIndex;
-
-        lxStep.getClasses = getClasses;
-        lxStep.init = init;
-        lxStep.previousStep = previousStep;
-        lxStep.setFeedback = setFeedback;
-        lxStep.setLabel = setLabel;
-        lxStep.setIsEditable = setIsEditable;
-        lxStep.setIsOptional = setIsOptional;
-        lxStep.submitStep = submitStep;
-        
-        lxStep.step = {
-            errorMessage: undefined,
-            feedback: undefined,
-            index: undefined,
-            isEditable: false,
-            isLoading: false,
-            isOptional: false,
-            isValid: lxStep.isValid,
-            label: undefined,
-            pristine: true,
-            uuid: LxUtils.generateUUID(),
-            validator: undefined
-        };
-
-        ////////////
-
-        function getClasses()
-        {
-            _classes.length = 0;
-
-            if (lxStep.step.index === lxStep.parent.activeIndex)
-            {
-                _classes.push('lx-step--is-active');
-            }
-
-            return _classes;
-        }
-
-        function init(parent, index)
-        {
-            lxStep.parent = parent;
-            lxStep.step.index = index;
-            lxStep.step.validator = lxStep.validate;
-
-            lxStep.parent.addStep(lxStep.step);
-        }
-
-        function previousStep()
-        {
-            if (lxStep.step.index > 0)
-            {
-                lxStep.parent.goToStep(lxStep.step.index - 1);
-            }
-        }
-
-        function setFeedback(feedback)
-        {
-            lxStep.step.feedback = feedback;
-            updateParentStep();
-        }
-
-        function setLabel(label)
-        {
-            lxStep.step.label = label;
-            updateParentStep();
-        }
-
-        function setIsEditable(isEditable)
-        {
-            lxStep.step.isEditable = isEditable;
-            updateParentStep();
-        }
-
-        function setIsOptional(isOptional)
-        {
-            lxStep.step.isOptional = isOptional;
-            updateParentStep();
-        }
-
-        function submitStep()
-        {
-            if (lxStep.step.isValid === true && !lxStep.step.isEditable)
-            {
-                lxStep.parent.goToStep(_nextStepIndex, true);
-                return;
-            }
-
-            var validateFunction = lxStep.validate;
-            var validity = true;
-
-            if (angular.isFunction(validateFunction))
-            {
-                validity = validateFunction();
-            }
-
-            if (validity === true)
-            {
-                $scope.$emit('lx-stepper__step-loading', lxStep.parent.id, lxStep.step.index);
-
-                lxStep.step.isLoading = true;
-                updateParentStep();
-
-                var submitFunction = lxStep.submit;
-
-                if (!angular.isFunction(submitFunction))
-                {
-                    submitFunction = function()
-                    {
-                        return $q(function(resolve)
-                        {
-                            resolve();
-                        });
-                    };
-                }
-
-                var promise = submitFunction();
-
-                promise.then(function(nextStepIndex)
-                {
-                    lxStep.step.isValid = true;
-                    updateParentStep();
-
-                    var isComplete = lxStep.parent.isComplete();
-
-                    if (!isComplete)
-                    {
-                        _nextStepIndex = angular.isDefined(nextStepIndex) && nextStepIndex > lxStep.parent.activeIndex && (!lxStep.parent.isLinear || (lxStep.parent.isLinear && lxStep.parent.steps[nextStepIndex - 1].isOptional)) ? nextStepIndex : lxStep.step.index + 1;
-
-                        lxStep.parent.goToStep(_nextStepIndex, true);
-                    }
-                    else
-                    {
-                        $scope.$emit('lx-stepper__completed', lxStepper.id);
-                    }
-                }).catch(function(error)
-                {
-                    LxNotificationService.error(error);
-                }).finally(function()
-                {
-                    $scope.$emit('lx-stepper__step-loaded', lxStep.parent.id, lxStep.step.index);
-                    lxStep.step.isLoading = false;
-                    updateParentStep();
-                });
-            }
-            else
-            {
-                lxStep.step.isValid = false;
-                lxStep.step.errorMessage = validity;
-                updateParentStep();
-            }
-        }
-
-        function updateParentStep()
-        {
-            lxStep.parent.updateStep(lxStep.step);
-        }
-
-        $scope.$on('lx-stepper__submit-step', function(event, id, index)
-        {
-            if ((angular.isDefined(id) && id !== lxStep.parent.id) || index !== lxStep.step.index)
-            {
-                return;
-            }
-
-            submitStep();
-        });
-        $scope.$on('lx-stepper__previous-step', function(event, id, index)
-        {
-            if ((angular.isDefined(id) && id !== lxStep.parent.id) || index !== lxStep.step.index)
-            {
-                return;
-            }
-
-            previousStep();
-        });
-    }
-
-    /* Step nav */
-    function lxStepNav()
-    {
-        return {
-            restrict: 'E',
-            require: ['lxStepNav', '^lxStepper'],
-            templateUrl: 'step-nav.html',
-            scope: {
-                activeIndex: '@lxActiveIndex',
-                step: '=lxStep'
-            },
-            link: link,
-            controller: LxStepNavController,
-            controllerAs: 'lxStepNav',
-            bindToController: true,
-            replace: true,
-            transclude: false
-        };
-
-        function link(scope, element, attrs, ctrls)
-        {
-            ctrls[0].init(ctrls[1]);
-        }
-    }
-
-    function LxStepNavController()
-    {
-        var lxStepNav = this;
-
-        var _classes = [];
-
-        lxStepNav.getClasses = getClasses;
-        lxStepNav.init = init;
-
-        ////////////
-
-        function getClasses()
-        {
-            _classes.length = 0;
-
-            if (parseInt(lxStepNav.step.index) === parseInt(lxStepNav.activeIndex))
-            {
-                _classes.push('lx-step-nav--is-active');
-            }
-
-            if (lxStepNav.step.isValid === true)
-            {
-                _classes.push('lx-step-nav--is-valid');
-            }
-            else if (lxStepNav.step.isValid === false)
-            {
-                _classes.push('lx-step-nav--has-error');
-            }
-
-            if (lxStepNav.step.isEditable)
-            {
-                _classes.push('lx-step-nav--is-editable');
-            }
-
-            if (lxStepNav.step.isOptional)
-            {
-                _classes.push('lx-step-nav--is-optional');
-            }
-
-            return _classes;
-        }
-
-        function init(parent, index)
-        {
-            lxStepNav.parent = parent;
         }
     }
 })();
