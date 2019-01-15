@@ -700,423 +700,6 @@
     'use strict';
 
     angular
-        .module('lumx.date-picker')
-        .directive('lxDatePicker', lxDatePicker);
-
-    lxDatePicker.$inject = ['LxDatePickerService', 'LxUtils'];
-
-    function lxDatePicker(LxDatePickerService, LxUtils)
-    {
-        return {
-            restrict: 'AE',
-            templateUrl: 'date-picker.html',
-            scope:
-            {
-                autoClose: '=?lxAutoClose',
-                callback: '&?lxCallback',
-                color: '@?lxColor',
-                escapeClose: '=?lxEscapeClose',
-                inputFormat: '@?lxInputFormat',
-                maxDate: '=?lxMaxDate',
-                ngModel: '=',
-                minDate: '=?lxMinDate',
-                locale: '@lxLocale'
-            },
-            link: link,
-            controller: LxDatePickerController,
-            controllerAs: 'lxDatePicker',
-            bindToController: true,
-            replace: true,
-            transclude: true
-        };
-
-        function link(scope, element, attrs)
-        {
-            if (angular.isDefined(attrs.id))
-            {
-                attrs.$observe('id', function(_newId)
-                {
-                    scope.lxDatePicker.pickerId = _newId;
-                    LxDatePickerService.registerScope(scope.lxDatePicker.pickerId, scope);
-                });
-            }
-            else
-            {
-                scope.lxDatePicker.pickerId = LxUtils.generateUUID();
-                LxDatePickerService.registerScope(scope.lxDatePicker.pickerId, scope);
-            }
-        }
-    }
-
-    LxDatePickerController.$inject = ['$element', '$scope', '$timeout', '$transclude', 'LxDatePickerService', 'LxUtils'];
-
-    function LxDatePickerController($element, $scope, $timeout, $transclude, LxDatePickerService, LxUtils)
-    {
-        var lxDatePicker = this;
-        var input;
-        var modelController;
-        var timer1;
-        var timer2;
-        var watcher1;
-        var watcher2;
-
-        lxDatePicker.closeDatePicker = closeDatePicker;
-        lxDatePicker.displayYearSelection = displayYearSelection;
-        lxDatePicker.hideYearSelection = hideYearSelection;
-        lxDatePicker.getDateFormatted = getDateFormatted;
-        lxDatePicker.nextMonth = nextMonth;
-        lxDatePicker.openDatePicker = openDatePicker;
-        lxDatePicker.previousMonth = previousMonth;
-        lxDatePicker.select = select;
-        lxDatePicker.selectYear = selectYear;
-
-        lxDatePicker.autoClose = angular.isDefined(lxDatePicker.autoClose) ? lxDatePicker.autoClose : true;
-        lxDatePicker.color = angular.isDefined(lxDatePicker.color) ? lxDatePicker.color : 'primary';
-        lxDatePicker.element = $element.find('.lx-date-picker');
-        lxDatePicker.escapeClose = angular.isDefined(lxDatePicker.escapeClose) ? lxDatePicker.escapeClose : true;
-        lxDatePicker.isOpen = false;
-        lxDatePicker.moment = moment;
-        lxDatePicker.yearSelection = false;
-        lxDatePicker.uuid = LxUtils.generateUUID();
-
-        $transclude(function(clone)
-        {
-            if (clone.length)
-            {
-                lxDatePicker.hasInput = true;
-
-                timer1 = $timeout(function()
-                {
-                    input = $element.find('.lx-date-input input');
-                    modelController = input.data('$ngModelController');
-
-                    watcher2 = $scope.$watch(function()
-                    {
-                        return modelController.$viewValue;
-                    }, function(newValue, oldValue)
-                    {
-                        if (angular.isUndefined(newValue))
-                        {
-                            lxDatePicker.ngModel = undefined;
-                        }
-                    });
-                });
-            }
-        });
-
-        watcher1 = $scope.$watch(function()
-        {
-            return lxDatePicker.ngModel;
-        }, init);
-
-        $scope.$on('$destroy', function()
-        {
-            $timeout.cancel(timer1);
-            $timeout.cancel(timer2);
-
-            if (angular.isFunction(watcher1))
-            {
-                watcher1();
-            }
-
-            if (angular.isFunction(watcher2))
-            {
-                watcher2();
-            }
-        });
-
-        ////////////
-
-        function closeDatePicker()
-        {
-            LxDatePickerService.close(lxDatePicker.pickerId);
-        }
-
-        function displayYearSelection()
-        {
-            lxDatePicker.yearSelection = true;
-
-            timer2 = $timeout(function()
-            {
-                var yearSelector = angular.element('.lx-date-picker__year-selector');
-                var activeYear = yearSelector.find('.lx-date-picker__year--is-active');
-
-                yearSelector.scrollTop(yearSelector.scrollTop() + activeYear.position().top - yearSelector.height() / 2 + activeYear.height() / 2);
-            });
-        }
-
-        function hideYearSelection()
-        {
-            lxDatePicker.yearSelection = false;
-        }
-
-        function generateCalendar()
-        {
-            lxDatePicker.days = [];
-
-            var previousDay = angular.copy(lxDatePicker.ngModelMoment).date(0);
-            var firstDayOfMonth = angular.copy(lxDatePicker.ngModelMoment).date(1);
-            var lastDayOfMonth = firstDayOfMonth.clone().endOf('month');
-            var maxDays = lastDayOfMonth.date();
-
-            lxDatePicker.emptyFirstDays = [];
-
-            for (var i = firstDayOfMonth.day() === 0 ? 6 : firstDayOfMonth.day() - 1; i > 0; i--)
-            {
-                lxDatePicker.emptyFirstDays.push(
-                {});
-            }
-
-            for (var j = 0; j < maxDays; j++)
-            {
-                var date = angular.copy(previousDay.add(1, 'days'));
-
-                date.selected = angular.isDefined(lxDatePicker.ngModel) && date.isSame(lxDatePicker.ngModel, 'day');
-                date.today = date.isSame(moment(), 'day');
-
-                if (angular.isDefined(lxDatePicker.minDate))
-                {
-                    var minDate = (angular.isString(lxDatePicker.minDate)) ? new Date(lxDatePicker.minDate) : lxDatePicker.minDate;
-                    if (date.toDate() < minDate)
-                    {
-                        date.disabled = true;
-                    }
-                }
-
-                if (angular.isDefined(lxDatePicker.maxDate))
-                {
-                    var maxDate = (angular.isString(lxDatePicker.maxDate)) ? new Date(lxDatePicker.maxDate) : lxDatePicker.maxDate;
-                    if (date.toDate() > maxDate)
-                    {
-                        date.disabled = true;
-                    }
-                }
-
-                lxDatePicker.days.push(date);
-            }
-
-            lxDatePicker.emptyLastDays = [];
-
-            for (var k = 7 - (lastDayOfMonth.day() === 0 ? 7 : lastDayOfMonth.day()); k > 0; k--)
-            {
-                lxDatePicker.emptyLastDays.push(
-                {});
-            }
-        }
-
-        function getDateFormatted()
-        {
-            var dateFormatted = lxDatePicker.ngModelMoment.format('llll').replace(lxDatePicker.ngModelMoment.format('LT'), '').trim().replace(lxDatePicker.ngModelMoment.format('YYYY'), '').trim();
-            var dateFormattedLastChar = dateFormatted.slice(-1);
-
-            if (dateFormattedLastChar === ',')
-            {
-                dateFormatted = dateFormatted.slice(0, -1);
-            }
-
-            return dateFormatted;
-        }
-
-        function init()
-        {
-            moment.locale(lxDatePicker.locale);
-
-            lxDatePicker.ngModelMoment = angular.isDefined(lxDatePicker.ngModel) ? moment(angular.copy(lxDatePicker.ngModel)) : moment();
-            lxDatePicker.days = [];
-            lxDatePicker.daysOfWeek = [moment.weekdaysMin(1), moment.weekdaysMin(2), moment.weekdaysMin(3), moment.weekdaysMin(4), moment.weekdaysMin(5), moment.weekdaysMin(6), moment.weekdaysMin(0)];
-            lxDatePicker.years = [];
-
-            for (var y = moment().year() - 100; y <= moment().year() + 100; y++)
-            {
-                lxDatePicker.years.push(y);
-            }
-
-            generateCalendar();
-        }
-
-        function nextMonth()
-        {
-            lxDatePicker.ngModelMoment = lxDatePicker.ngModelMoment.add(1, 'month');
-
-            generateCalendar();
-        }
-
-        function openDatePicker()
-        {
-            LxDatePickerService.open(lxDatePicker.pickerId);
-
-            generateCalendar();
-        }
-
-        function previousMonth()
-        {
-            lxDatePicker.ngModelMoment = lxDatePicker.ngModelMoment.subtract(1, 'month');
-
-            generateCalendar();
-        }
-
-        function select(_day)
-        {
-            if (!_day.disabled)
-            {
-                lxDatePicker.ngModel = _day.toDate();
-                lxDatePicker.ngModelMoment = angular.copy(_day);
-
-                if (angular.isDefined(lxDatePicker.callback))
-                {
-                    lxDatePicker.callback(
-                    {
-                        newDate: lxDatePicker.ngModel
-                    });
-                }
-
-                if (angular.isDefined(modelController) && lxDatePicker.inputFormat)
-                {
-                    modelController.$setViewValue(angular.copy(_day).format(lxDatePicker.inputFormat));
-                    modelController.$render();
-                }
-
-                generateCalendar();
-            }
-        }
-
-        function selectYear(_year)
-        {
-            lxDatePicker.yearSelection = false;
-
-            lxDatePicker.ngModelMoment = lxDatePicker.ngModelMoment.year(_year);
-
-            generateCalendar();
-        }
-    }
-})();
-
-(function()
-{
-    'use strict';
-
-    angular
-        .module('lumx.date-picker')
-        .service('LxDatePickerService', LxDatePickerService);
-
-    LxDatePickerService.$inject = ['$rootScope', '$timeout', 'LxDepthService', 'LxEventSchedulerService'];
-
-    function LxDatePickerService($rootScope, $timeout, LxDepthService, LxEventSchedulerService)
-    {
-        var service = this;
-        var activeDatePickerId;
-        var datePickerFilter;
-        var idEventScheduler;
-        var scopeMap = {};
-
-        service.close = closeDatePicker;
-        service.open = openDatePicker;
-        service.registerScope = registerScope;
-
-        ////////////
-
-        function closeDatePicker(_datePickerId)
-        {
-            if (angular.isDefined(idEventScheduler))
-            {
-                LxEventSchedulerService.unregister(idEventScheduler);
-                idEventScheduler = undefined;
-            }
-
-            activeDatePickerId = undefined;
-
-            $rootScope.$broadcast('lx-date-picker__close-start', _datePickerId);
-
-            datePickerFilter.removeClass('lx-date-picker-filter--is-shown');
-            scopeMap[_datePickerId].element.removeClass('lx-date-picker--is-shown');
-
-            $timeout(function()
-            {
-                angular.element('body').removeClass('no-scroll-date-picker-' + scopeMap[_datePickerId].uuid);
-
-                datePickerFilter.remove();
-
-                scopeMap[_datePickerId].element
-                    .hide()
-                    .appendTo(scopeMap[_datePickerId].elementParent);
-
-                scopeMap[_datePickerId].isOpen = false;
-                $rootScope.$broadcast('lx-date-picker__close-end', _datePickerId);
-            }, 600);
-        }
-
-        function onKeyUp(_event)
-        {
-            if (_event.keyCode == 27 && angular.isDefined(activeDatePickerId))
-            {
-                closeDatePicker(activeDatePickerId);
-            }
-
-            _event.stopPropagation();
-        }
-
-        function openDatePicker(_datePickerId)
-        {
-            LxDepthService.register();
-
-            activeDatePickerId = _datePickerId;
-
-            angular.element('body').addClass('no-scroll-date-picker-' + scopeMap[_datePickerId].uuid);
-
-            datePickerFilter = angular.element('<div/>',
-            {
-                class: 'lx-date-picker-filter'
-            });
-
-            datePickerFilter
-                .css('z-index', LxDepthService.getDepth())
-                .appendTo('body');
-
-            if (scopeMap[activeDatePickerId].autoClose)
-            {
-                datePickerFilter.on('click', function()
-                {
-                    closeDatePicker(activeDatePickerId);
-                });
-            }
-
-            if (scopeMap[activeDatePickerId].escapeClose)
-            {
-                idEventScheduler = LxEventSchedulerService.register('keyup', onKeyUp);
-            }
-
-            scopeMap[activeDatePickerId].element
-                .css('z-index', LxDepthService.getDepth() + 1)
-                .appendTo('body')
-                .show();
-
-            $timeout(function()
-            {
-                $rootScope.$broadcast('lx-date-picker__open-start', activeDatePickerId);
-
-                scopeMap[activeDatePickerId].isOpen = true;
-
-                datePickerFilter.addClass('lx-date-picker-filter--is-shown');
-                scopeMap[activeDatePickerId].element.addClass('lx-date-picker--is-shown');
-            }, 100);
-
-            $timeout(function()
-            {
-                $rootScope.$broadcast('lx-date-picker__open-end', activeDatePickerId);
-            }, 700);
-        }
-
-        function registerScope(_datePickerId, _datePickerScope)
-        {
-            scopeMap[_datePickerId] = _datePickerScope.lxDatePicker;
-        }
-    }
-})();
-(function()
-{
-    'use strict';
-
-    angular
         .module('lumx.data-table')
         .directive('lxDataTable', lxDataTable);
 
@@ -1849,6 +1432,423 @@
     }
 })();
 
+(function()
+{
+    'use strict';
+
+    angular
+        .module('lumx.date-picker')
+        .directive('lxDatePicker', lxDatePicker);
+
+    lxDatePicker.$inject = ['LxDatePickerService', 'LxUtils'];
+
+    function lxDatePicker(LxDatePickerService, LxUtils)
+    {
+        return {
+            restrict: 'AE',
+            templateUrl: 'date-picker.html',
+            scope:
+            {
+                autoClose: '=?lxAutoClose',
+                callback: '&?lxCallback',
+                color: '@?lxColor',
+                escapeClose: '=?lxEscapeClose',
+                inputFormat: '@?lxInputFormat',
+                maxDate: '=?lxMaxDate',
+                ngModel: '=',
+                minDate: '=?lxMinDate',
+                locale: '@lxLocale'
+            },
+            link: link,
+            controller: LxDatePickerController,
+            controllerAs: 'lxDatePicker',
+            bindToController: true,
+            replace: true,
+            transclude: true
+        };
+
+        function link(scope, element, attrs)
+        {
+            if (angular.isDefined(attrs.id))
+            {
+                attrs.$observe('id', function(_newId)
+                {
+                    scope.lxDatePicker.pickerId = _newId;
+                    LxDatePickerService.registerScope(scope.lxDatePicker.pickerId, scope);
+                });
+            }
+            else
+            {
+                scope.lxDatePicker.pickerId = LxUtils.generateUUID();
+                LxDatePickerService.registerScope(scope.lxDatePicker.pickerId, scope);
+            }
+        }
+    }
+
+    LxDatePickerController.$inject = ['$element', '$scope', '$timeout', '$transclude', 'LxDatePickerService', 'LxUtils'];
+
+    function LxDatePickerController($element, $scope, $timeout, $transclude, LxDatePickerService, LxUtils)
+    {
+        var lxDatePicker = this;
+        var input;
+        var modelController;
+        var timer1;
+        var timer2;
+        var watcher1;
+        var watcher2;
+
+        lxDatePicker.closeDatePicker = closeDatePicker;
+        lxDatePicker.displayYearSelection = displayYearSelection;
+        lxDatePicker.hideYearSelection = hideYearSelection;
+        lxDatePicker.getDateFormatted = getDateFormatted;
+        lxDatePicker.nextMonth = nextMonth;
+        lxDatePicker.openDatePicker = openDatePicker;
+        lxDatePicker.previousMonth = previousMonth;
+        lxDatePicker.select = select;
+        lxDatePicker.selectYear = selectYear;
+
+        lxDatePicker.autoClose = angular.isDefined(lxDatePicker.autoClose) ? lxDatePicker.autoClose : true;
+        lxDatePicker.color = angular.isDefined(lxDatePicker.color) ? lxDatePicker.color : 'primary';
+        lxDatePicker.element = $element.find('.lx-date-picker');
+        lxDatePicker.escapeClose = angular.isDefined(lxDatePicker.escapeClose) ? lxDatePicker.escapeClose : true;
+        lxDatePicker.isOpen = false;
+        lxDatePicker.moment = moment;
+        lxDatePicker.yearSelection = false;
+        lxDatePicker.uuid = LxUtils.generateUUID();
+
+        $transclude(function(clone)
+        {
+            if (clone.length)
+            {
+                lxDatePicker.hasInput = true;
+
+                timer1 = $timeout(function()
+                {
+                    input = $element.find('.lx-date-input input');
+                    modelController = input.data('$ngModelController');
+
+                    watcher2 = $scope.$watch(function()
+                    {
+                        return modelController.$viewValue;
+                    }, function(newValue, oldValue)
+                    {
+                        if (angular.isUndefined(newValue))
+                        {
+                            lxDatePicker.ngModel = undefined;
+                        }
+                    });
+                });
+            }
+        });
+
+        watcher1 = $scope.$watch(function()
+        {
+            return lxDatePicker.ngModel;
+        }, init);
+
+        $scope.$on('$destroy', function()
+        {
+            $timeout.cancel(timer1);
+            $timeout.cancel(timer2);
+
+            if (angular.isFunction(watcher1))
+            {
+                watcher1();
+            }
+
+            if (angular.isFunction(watcher2))
+            {
+                watcher2();
+            }
+        });
+
+        ////////////
+
+        function closeDatePicker()
+        {
+            LxDatePickerService.close(lxDatePicker.pickerId);
+        }
+
+        function displayYearSelection()
+        {
+            lxDatePicker.yearSelection = true;
+
+            timer2 = $timeout(function()
+            {
+                var yearSelector = angular.element('.lx-date-picker__year-selector');
+                var activeYear = yearSelector.find('.lx-date-picker__year--is-active');
+
+                yearSelector.scrollTop(yearSelector.scrollTop() + activeYear.position().top - yearSelector.height() / 2 + activeYear.height() / 2);
+            });
+        }
+
+        function hideYearSelection()
+        {
+            lxDatePicker.yearSelection = false;
+        }
+
+        function generateCalendar()
+        {
+            lxDatePicker.days = [];
+
+            var previousDay = angular.copy(lxDatePicker.ngModelMoment).date(0);
+            var firstDayOfMonth = angular.copy(lxDatePicker.ngModelMoment).date(1);
+            var lastDayOfMonth = firstDayOfMonth.clone().endOf('month');
+            var maxDays = lastDayOfMonth.date();
+
+            lxDatePicker.emptyFirstDays = [];
+
+            for (var i = firstDayOfMonth.day() === 0 ? 6 : firstDayOfMonth.day() - 1; i > 0; i--)
+            {
+                lxDatePicker.emptyFirstDays.push(
+                {});
+            }
+
+            for (var j = 0; j < maxDays; j++)
+            {
+                var date = angular.copy(previousDay.add(1, 'days'));
+
+                date.selected = angular.isDefined(lxDatePicker.ngModel) && date.isSame(lxDatePicker.ngModel, 'day');
+                date.today = date.isSame(moment(), 'day');
+
+                if (angular.isDefined(lxDatePicker.minDate))
+                {
+                    var minDate = (angular.isString(lxDatePicker.minDate)) ? new Date(lxDatePicker.minDate) : lxDatePicker.minDate;
+                    if (date.toDate() < minDate)
+                    {
+                        date.disabled = true;
+                    }
+                }
+
+                if (angular.isDefined(lxDatePicker.maxDate))
+                {
+                    var maxDate = (angular.isString(lxDatePicker.maxDate)) ? new Date(lxDatePicker.maxDate) : lxDatePicker.maxDate;
+                    if (date.toDate() > maxDate)
+                    {
+                        date.disabled = true;
+                    }
+                }
+
+                lxDatePicker.days.push(date);
+            }
+
+            lxDatePicker.emptyLastDays = [];
+
+            for (var k = 7 - (lastDayOfMonth.day() === 0 ? 7 : lastDayOfMonth.day()); k > 0; k--)
+            {
+                lxDatePicker.emptyLastDays.push(
+                {});
+            }
+        }
+
+        function getDateFormatted()
+        {
+            var dateFormatted = lxDatePicker.ngModelMoment.format('llll').replace(lxDatePicker.ngModelMoment.format('LT'), '').trim().replace(lxDatePicker.ngModelMoment.format('YYYY'), '').trim();
+            var dateFormattedLastChar = dateFormatted.slice(-1);
+
+            if (dateFormattedLastChar === ',')
+            {
+                dateFormatted = dateFormatted.slice(0, -1);
+            }
+
+            return dateFormatted;
+        }
+
+        function init()
+        {
+            moment.locale(lxDatePicker.locale);
+
+            lxDatePicker.ngModelMoment = angular.isDefined(lxDatePicker.ngModel) ? moment(angular.copy(lxDatePicker.ngModel)) : moment();
+            lxDatePicker.days = [];
+            lxDatePicker.daysOfWeek = [moment.weekdaysMin(1), moment.weekdaysMin(2), moment.weekdaysMin(3), moment.weekdaysMin(4), moment.weekdaysMin(5), moment.weekdaysMin(6), moment.weekdaysMin(0)];
+            lxDatePicker.years = [];
+
+            for (var y = moment().year() - 100; y <= moment().year() + 100; y++)
+            {
+                lxDatePicker.years.push(y);
+            }
+
+            generateCalendar();
+        }
+
+        function nextMonth()
+        {
+            lxDatePicker.ngModelMoment = lxDatePicker.ngModelMoment.add(1, 'month');
+
+            generateCalendar();
+        }
+
+        function openDatePicker()
+        {
+            LxDatePickerService.open(lxDatePicker.pickerId);
+
+            generateCalendar();
+        }
+
+        function previousMonth()
+        {
+            lxDatePicker.ngModelMoment = lxDatePicker.ngModelMoment.subtract(1, 'month');
+
+            generateCalendar();
+        }
+
+        function select(_day)
+        {
+            if (!_day.disabled)
+            {
+                lxDatePicker.ngModel = _day.toDate();
+                lxDatePicker.ngModelMoment = angular.copy(_day);
+
+                if (angular.isDefined(lxDatePicker.callback))
+                {
+                    lxDatePicker.callback(
+                    {
+                        newDate: lxDatePicker.ngModel
+                    });
+                }
+
+                if (angular.isDefined(modelController) && lxDatePicker.inputFormat)
+                {
+                    modelController.$setViewValue(angular.copy(_day).format(lxDatePicker.inputFormat));
+                    modelController.$render();
+                }
+
+                generateCalendar();
+            }
+        }
+
+        function selectYear(_year)
+        {
+            lxDatePicker.yearSelection = false;
+
+            lxDatePicker.ngModelMoment = lxDatePicker.ngModelMoment.year(_year);
+
+            generateCalendar();
+        }
+    }
+})();
+
+(function()
+{
+    'use strict';
+
+    angular
+        .module('lumx.date-picker')
+        .service('LxDatePickerService', LxDatePickerService);
+
+    LxDatePickerService.$inject = ['$rootScope', '$timeout', 'LxDepthService', 'LxEventSchedulerService'];
+
+    function LxDatePickerService($rootScope, $timeout, LxDepthService, LxEventSchedulerService)
+    {
+        var service = this;
+        var activeDatePickerId;
+        var datePickerFilter;
+        var idEventScheduler;
+        var scopeMap = {};
+
+        service.close = closeDatePicker;
+        service.open = openDatePicker;
+        service.registerScope = registerScope;
+
+        ////////////
+
+        function closeDatePicker(_datePickerId)
+        {
+            if (angular.isDefined(idEventScheduler))
+            {
+                LxEventSchedulerService.unregister(idEventScheduler);
+                idEventScheduler = undefined;
+            }
+
+            activeDatePickerId = undefined;
+
+            $rootScope.$broadcast('lx-date-picker__close-start', _datePickerId);
+
+            datePickerFilter.removeClass('lx-date-picker-filter--is-shown');
+            scopeMap[_datePickerId].element.removeClass('lx-date-picker--is-shown');
+
+            $timeout(function()
+            {
+                angular.element('body').removeClass('no-scroll-date-picker-' + scopeMap[_datePickerId].uuid);
+
+                datePickerFilter.remove();
+
+                scopeMap[_datePickerId].element
+                    .hide()
+                    .appendTo(scopeMap[_datePickerId].elementParent);
+
+                scopeMap[_datePickerId].isOpen = false;
+                $rootScope.$broadcast('lx-date-picker__close-end', _datePickerId);
+            }, 600);
+        }
+
+        function onKeyUp(_event)
+        {
+            if (_event.keyCode == 27 && angular.isDefined(activeDatePickerId))
+            {
+                closeDatePicker(activeDatePickerId);
+            }
+
+            _event.stopPropagation();
+        }
+
+        function openDatePicker(_datePickerId)
+        {
+            LxDepthService.register();
+
+            activeDatePickerId = _datePickerId;
+
+            angular.element('body').addClass('no-scroll-date-picker-' + scopeMap[_datePickerId].uuid);
+
+            datePickerFilter = angular.element('<div/>',
+            {
+                class: 'lx-date-picker-filter'
+            });
+
+            datePickerFilter
+                .css('z-index', LxDepthService.getDepth())
+                .appendTo('body');
+
+            if (scopeMap[activeDatePickerId].autoClose)
+            {
+                datePickerFilter.on('click', function()
+                {
+                    closeDatePicker(activeDatePickerId);
+                });
+            }
+
+            if (scopeMap[activeDatePickerId].escapeClose)
+            {
+                idEventScheduler = LxEventSchedulerService.register('keyup', onKeyUp);
+            }
+
+            scopeMap[activeDatePickerId].element
+                .css('z-index', LxDepthService.getDepth() + 1)
+                .appendTo('body')
+                .show();
+
+            $timeout(function()
+            {
+                $rootScope.$broadcast('lx-date-picker__open-start', activeDatePickerId);
+
+                scopeMap[activeDatePickerId].isOpen = true;
+
+                datePickerFilter.addClass('lx-date-picker-filter--is-shown');
+                scopeMap[activeDatePickerId].element.addClass('lx-date-picker--is-shown');
+            }, 100);
+
+            $timeout(function()
+            {
+                $rootScope.$broadcast('lx-date-picker__open-end', activeDatePickerId);
+            }, 700);
+        }
+
+        function registerScope(_datePickerId, _datePickerScope)
+        {
+            scopeMap[_datePickerId] = _datePickerScope.lxDatePicker;
+        }
+    }
+})();
 (function()
 {
     'use strict';
@@ -2764,6 +2764,100 @@
     'use strict';
 
     angular
+        .module('lumx.file-input')
+        .directive('lxFileInput', lxFileInput);
+
+    function lxFileInput()
+    {
+        return {
+            restrict: 'E',
+            templateUrl: 'file-input.html',
+            scope:
+            {
+                label: '@lxLabel',
+                accept: '@lxAccept',
+                callback: '&?lxCallback'
+            },
+            link: link,
+            controller: LxFileInputController,
+            controllerAs: 'lxFileInput',
+            bindToController: true,
+            replace: true
+        };
+
+        function link(scope, element, attrs, ctrl)
+        {
+            var input = element.find('input');
+
+            input
+                .on('change', ctrl.updateModel)
+                .on('blur', function()
+                {
+                    element.removeClass('input-file--is-focus');
+                });
+
+            scope.$on('$destroy', function()
+            {
+                input.off();
+            });
+        }
+    }
+
+    LxFileInputController.$inject = ['$element', '$scope', '$timeout'];
+
+    function LxFileInputController($element, $scope, $timeout)
+    {
+        var lxFileInput = this;
+        var input = $element.find('input');
+        var timer;
+
+        lxFileInput.updateModel = updateModel;
+
+        $scope.$on('$destroy', function()
+        {
+            $timeout.cancel(timer);
+        });
+
+        ////////////
+
+        function setFileName()
+        {
+            if (input.val())
+            {
+                lxFileInput.fileName = input.val().replace(/C:\\fakepath\\/i, '');
+
+                $element.addClass('input-file--is-focus');
+                $element.addClass('input-file--is-active');
+            }
+            else
+            {
+                lxFileInput.fileName = undefined;
+
+                $element.removeClass('input-file--is-active');
+            }
+
+            input.val(undefined);
+        }
+
+        function updateModel()
+        {
+            if (angular.isDefined(lxFileInput.callback))
+            {
+                lxFileInput.callback(
+                {
+                    newFile: input[0].files[0]
+                });
+            }
+
+            timer = $timeout(setFileName);
+        }
+    }
+})();
+(function()
+{
+    'use strict';
+
+    angular
         .module('lumx.fab')
         .directive('lxFab', lxFab)
         .directive('lxFabTrigger', lxFabTrigger)
@@ -2857,100 +2951,6 @@
     }
 })();
 
-(function()
-{
-    'use strict';
-
-    angular
-        .module('lumx.file-input')
-        .directive('lxFileInput', lxFileInput);
-
-    function lxFileInput()
-    {
-        return {
-            restrict: 'E',
-            templateUrl: 'file-input.html',
-            scope:
-            {
-                label: '@lxLabel',
-                accept: '@lxAccept',
-                callback: '&?lxCallback'
-            },
-            link: link,
-            controller: LxFileInputController,
-            controllerAs: 'lxFileInput',
-            bindToController: true,
-            replace: true
-        };
-
-        function link(scope, element, attrs, ctrl)
-        {
-            var input = element.find('input');
-
-            input
-                .on('change', ctrl.updateModel)
-                .on('blur', function()
-                {
-                    element.removeClass('input-file--is-focus');
-                });
-
-            scope.$on('$destroy', function()
-            {
-                input.off();
-            });
-        }
-    }
-
-    LxFileInputController.$inject = ['$element', '$scope', '$timeout'];
-
-    function LxFileInputController($element, $scope, $timeout)
-    {
-        var lxFileInput = this;
-        var input = $element.find('input');
-        var timer;
-
-        lxFileInput.updateModel = updateModel;
-
-        $scope.$on('$destroy', function()
-        {
-            $timeout.cancel(timer);
-        });
-
-        ////////////
-
-        function setFileName()
-        {
-            if (input.val())
-            {
-                lxFileInput.fileName = input.val().replace(/C:\\fakepath\\/i, '');
-
-                $element.addClass('input-file--is-focus');
-                $element.addClass('input-file--is-active');
-            }
-            else
-            {
-                lxFileInput.fileName = undefined;
-
-                $element.removeClass('input-file--is-active');
-            }
-
-            input.val(undefined);
-        }
-
-        function updateModel()
-        {
-            if (angular.isDefined(lxFileInput.callback))
-            {
-                lxFileInput.callback(
-                {
-                    newFile: input[0].files[0]
-                });
-            }
-
-            timer = $timeout(setFileName);
-        }
-    }
-})();
 (function()
 {
     'use strict';
@@ -3796,396 +3796,6 @@
         }
     }
 })();
-(function()
-{
-    'use strict';
-
-    angular
-        .module('lumx.search-filter')
-        .filter('lxSearchHighlight', lxSearchHighlight)
-        .directive('lxSearchFilter', lxSearchFilter);
-
-    lxSearchHighlight.$inject = ['$sce'];
-
-    function lxSearchHighlight($sce)
-    {
-        function escapeRegexp(queryToEscape)
-        {
-            return queryToEscape.replace(/([.?*+^$[\]\\(){}|-])/g, '\\$1');
-        }
-
-        return function (matchItem, query, icon)
-        {
-            var string = '';
-
-            if (icon)
-            {
-                string += '<i class="mdi mdi-' + icon + '"></i>';
-            }
-
-            string += query && matchItem ? matchItem.replace(new RegExp(escapeRegexp(query), 'gi'), '<strong>$&</strong>') : matchItem;
-
-            return $sce.trustAsHtml(string);
-        };
-    }
-
-    function lxSearchFilter()
-    {
-        return {
-            restrict: 'E',
-            templateUrl: 'search-filter.html',
-            scope:
-            {
-                autocomplete: '&?lxAutocomplete',
-                closed: '=?lxClosed',
-                color: '@?lxColor',
-                icon: '@?lxIcon',
-                onInit: '&?lxOnInit',
-                onSelect: '=?lxOnSelect',
-                searchOnFocus: '=?lxSearchOnFocus',
-                theme: '@?lxTheme',
-                width: '@?lxWidth'
-            },
-            link: link,
-            controller: LxSearchFilterController,
-            controllerAs: 'lxSearchFilter',
-            bindToController: true,
-            replace: true,
-            transclude: true
-        };
-
-        function link(scope, element, attrs, ctrl, transclude)
-        {
-            var input;
-
-            attrs.$observe('lxWidth', function(newWidth)
-            {
-                if (angular.isDefined(scope.lxSearchFilter.closed) && scope.lxSearchFilter.closed)
-                {
-                    element.find('.search-filter__container').css('width', newWidth);
-                }
-            });
-
-            transclude(function()
-            {
-                input = element.find('input');
-
-                ctrl.setInput(input);
-                ctrl.setModel(input.data('$ngModelController'));
-
-                input.on('focus', ctrl.focusInput);
-                input.on('blur', ctrl.blurInput);
-                input.on('keydown', ctrl.keyEvent);
-            });
-
-            scope.$on('$destroy', function()
-            {
-                input.off();
-            });
-
-
-            if (angular.isDefined(scope.lxSearchFilter.onInit)) {
-                scope.lxSearchFilter.onInit()(scope.lxSearchFilter.dropdownId);
-            }
-        }
-    }
-
-    LxSearchFilterController.$inject = ['$element', '$scope', '$timeout', 'LxDropdownService', 'LxNotificationService', 'LxUtils'];
-
-    function LxSearchFilterController($element, $scope, $timeout, LxDropdownService, LxNotificationService, LxUtils)
-    {
-        var lxSearchFilter = this;
-        var debouncedAutocomplete;
-        var input;
-        var itemSelected = false;
-
-        lxSearchFilter.blurInput = blurInput;
-        lxSearchFilter.clearInput = clearInput;
-        lxSearchFilter.focusInput = focusInput;
-        lxSearchFilter.getClass = getClass;
-        lxSearchFilter.keyEvent = keyEvent;
-        lxSearchFilter.openInput = openInput;
-        lxSearchFilter.selectItem = selectItem;
-        lxSearchFilter.setInput = setInput;
-        lxSearchFilter.setModel = setModel;
-
-        lxSearchFilter.activeChoiceIndex = -1;
-        lxSearchFilter.color = angular.isDefined(lxSearchFilter.color) ? lxSearchFilter.color : 'black';
-        lxSearchFilter.dropdownId = LxUtils.generateUUID();
-        lxSearchFilter.theme = angular.isDefined(lxSearchFilter.theme) ? lxSearchFilter.theme : 'light';
-
-        ////////////
-
-        function blurInput()
-        {
-            if (angular.isDefined(lxSearchFilter.closed) && lxSearchFilter.closed && !input.val())
-            {
-                $element.velocity(
-                {
-                    width: 40
-                },
-                {
-                    duration: 400,
-                    easing: 'easeOutQuint',
-                    queue: false
-                });
-            }
-
-            if (!input.val())
-            {
-                $timeout(function() {
-                    lxSearchFilter.modelController.$setViewValue(undefined);
-                }, 500);
-            }
-        }
-
-        function clearInput()
-        {
-            lxSearchFilter.modelController.$setViewValue(undefined);
-            lxSearchFilter.modelController.$render();
-
-            // Temporarily disabling search on focus since we never want to trigger it when clearing the input.
-            var searchOnFocus = lxSearchFilter.searchOnFocus;
-            lxSearchFilter.searchOnFocus = false;
-
-            input.focus();
-
-            lxSearchFilter.searchOnFocus = searchOnFocus;
-        }
-
-        function focusInput()
-        {
-            if (!lxSearchFilter.searchOnFocus)
-            {
-                return;
-            }
-
-            updateAutocomplete(lxSearchFilter.modelController.$viewValue, true);
-        }
-
-        function getClass()
-        {
-            var searchFilterClass = [];
-
-            if (angular.isUndefined(lxSearchFilter.closed) || !lxSearchFilter.closed)
-            {
-                searchFilterClass.push('search-filter--opened-mode');
-            }
-
-            if (angular.isDefined(lxSearchFilter.closed) && lxSearchFilter.closed)
-            {
-                searchFilterClass.push('search-filter--closed-mode');
-            }
-
-            if (input.val())
-            {
-                searchFilterClass.push('search-filter--has-clear-button');
-            }
-
-            if (angular.isDefined(lxSearchFilter.color))
-            {
-                searchFilterClass.push('search-filter--' + lxSearchFilter.color);
-            }
-
-            if (angular.isDefined(lxSearchFilter.theme))
-            {
-                searchFilterClass.push('search-filter--theme-' + lxSearchFilter.theme);
-            }
-
-            if (angular.isFunction(lxSearchFilter.autocomplete))
-            {
-                searchFilterClass.push('search-filter--autocomplete');
-            }
-
-            if (LxDropdownService.isOpen(lxSearchFilter.dropdownId))
-            {
-                searchFilterClass.push('search-filter--is-open');
-            }
-
-            return searchFilterClass;
-        }
-
-        function keyEvent(_event)
-        {
-            if (!angular.isFunction(lxSearchFilter.autocomplete))
-            {
-                return;
-            }
-
-            if (!LxDropdownService.isOpen(lxSearchFilter.dropdownId))
-            {
-                lxSearchFilter.activeChoiceIndex = -1;
-            }
-
-            switch (_event.keyCode) {
-                case 13:
-                    keySelect();
-                    if (lxSearchFilter.activeChoiceIndex > -1)
-                    {
-                        _event.preventDefault();
-                    }
-                    break;
-
-                case 38:
-                    keyUp();
-                    _event.preventDefault();
-                    break;
-
-                case 40:
-                    keyDown();
-                    _event.preventDefault();
-                    break;
-            }
-
-            $scope.$apply();
-        }
-
-        function keyDown()
-        {
-            if (lxSearchFilter.autocompleteList.length)
-            {
-                lxSearchFilter.activeChoiceIndex += 1;
-
-                if (lxSearchFilter.activeChoiceIndex >= lxSearchFilter.autocompleteList.length)
-                {
-                    lxSearchFilter.activeChoiceIndex = 0;
-                }
-            }
-        }
-
-        function keySelect()
-        {
-            if (!lxSearchFilter.autocompleteList || lxSearchFilter.activeChoiceIndex === -1)
-            {
-                return;
-            }
-
-            selectItem(lxSearchFilter.autocompleteList[lxSearchFilter.activeChoiceIndex]);
-        }
-
-        function keyUp()
-        {
-            if (lxSearchFilter.autocompleteList.length)
-            {
-                lxSearchFilter.activeChoiceIndex -= 1;
-
-                if (lxSearchFilter.activeChoiceIndex < 0)
-                {
-                    lxSearchFilter.activeChoiceIndex = lxSearchFilter.autocompleteList.length - 1;
-                }
-            }
-        }
-
-        function openDropdown()
-        {
-            LxDropdownService.open(lxSearchFilter.dropdownId, $element);
-        }
-
-        function closeDropdown()
-        {
-            LxDropdownService.close(lxSearchFilter.dropdownId);
-        }
-
-        function onAutocompleteSuccess(autocompleteList)
-        {
-            lxSearchFilter.autocompleteList = autocompleteList;
-
-            (lxSearchFilter.autocompleteList.length) ? openDropdown() : closeDropdown();
-            lxSearchFilter.isLoading = false;
-        }
-
-        function onAutocompleteError(error)
-        {
-            LxNotificationService.error(error);
-            lxSearchFilter.isLoading = false;
-        }
-
-        function openInput()
-        {
-            if (angular.isDefined(lxSearchFilter.closed) && lxSearchFilter.closed)
-            {
-                $element.velocity(
-                {
-                    width: angular.isDefined(lxSearchFilter.width) ? parseInt(lxSearchFilter.width) : 240
-                },
-                {
-                    duration: 400,
-                    easing: 'easeOutQuint',
-                    queue: false,
-                    complete: function()
-                    {
-                        input.focus();
-                    }
-                });
-            }
-            else
-            {
-                input.focus();
-            }
-        }
-
-        function selectItem(_item)
-        {
-            itemSelected = true;
-
-            closeDropdown();
-
-            lxSearchFilter.modelController.$setViewValue(_item);
-            lxSearchFilter.modelController.$render();
-
-            if (angular.isFunction(lxSearchFilter.onSelect))
-            {
-                lxSearchFilter.onSelect(_item);
-            }
-        }
-
-        function setInput(_input)
-        {
-            input = _input;
-        }
-
-        function setModel(_modelController)
-        {
-            lxSearchFilter.modelController = _modelController;
-
-            if (angular.isFunction(lxSearchFilter.autocomplete) && angular.isFunction(lxSearchFilter.autocomplete()))
-            {
-                debouncedAutocomplete = LxUtils.debounce(function()
-                {
-                    lxSearchFilter.isLoading = true;
-                    (lxSearchFilter.autocomplete()).apply(this, arguments);
-                }, 500);
-                lxSearchFilter.modelController.$parsers.push(updateAutocomplete);
-            }
-        }
-
-        function updateAutocomplete(_newValue, _immediate)
-        {
-            if ((_newValue || (angular.isUndefined(_newValue) && lxSearchFilter.searchOnFocus)) && !itemSelected)
-            {
-                if (_immediate)
-                {
-                    lxSearchFilter.isLoading = true;
-                    (lxSearchFilter.autocomplete())(_newValue, onAutocompleteSuccess, onAutocompleteError);
-                }
-                else
-                {
-                    debouncedAutocomplete(_newValue, onAutocompleteSuccess, onAutocompleteError);
-                }
-            }
-            else
-            {
-                debouncedAutocomplete.clear();
-                closeDropdown();
-            }
-
-            itemSelected = false;
-
-            return _newValue;
-        }
-    }
-})();
-
 (function()
 {
     'use strict';
@@ -5644,6 +5254,546 @@
     'use strict';
 
     angular
+        .module('lumx.search-filter')
+        .filter('lxSearchHighlight', lxSearchHighlight)
+        .directive('lxSearchFilter', lxSearchFilter);
+
+    lxSearchHighlight.$inject = ['$sce'];
+
+    function lxSearchHighlight($sce)
+    {
+        function escapeRegexp(queryToEscape)
+        {
+            return queryToEscape.replace(/([.?*+^$[\]\\(){}|-])/g, '\\$1');
+        }
+
+        return function (matchItem, query, icon)
+        {
+            var string = '';
+
+            if (icon)
+            {
+                string += '<i class="mdi mdi-' + icon + '"></i>';
+            }
+
+            string += query && matchItem ? matchItem.replace(new RegExp(escapeRegexp(query), 'gi'), '<strong>$&</strong>') : matchItem;
+
+            return $sce.trustAsHtml(string);
+        };
+    }
+
+    function lxSearchFilter()
+    {
+        return {
+            restrict: 'E',
+            templateUrl: 'search-filter.html',
+            scope:
+            {
+                autocomplete: '&?lxAutocomplete',
+                closed: '=?lxClosed',
+                color: '@?lxColor',
+                icon: '@?lxIcon',
+                onInit: '&?lxOnInit',
+                onSelect: '=?lxOnSelect',
+                searchOnFocus: '=?lxSearchOnFocus',
+                theme: '@?lxTheme',
+                width: '@?lxWidth'
+            },
+            link: link,
+            controller: LxSearchFilterController,
+            controllerAs: 'lxSearchFilter',
+            bindToController: true,
+            replace: true,
+            transclude: true
+        };
+
+        function link(scope, element, attrs, ctrl, transclude)
+        {
+            var input;
+
+            attrs.$observe('lxWidth', function(newWidth)
+            {
+                if (angular.isDefined(scope.lxSearchFilter.closed) && scope.lxSearchFilter.closed)
+                {
+                    element.find('.search-filter__container').css('width', newWidth);
+                }
+            });
+
+            transclude(function()
+            {
+                input = element.find('input');
+
+                ctrl.setInput(input);
+                ctrl.setModel(input.data('$ngModelController'));
+
+                input.on('focus', ctrl.focusInput);
+                input.on('blur', ctrl.blurInput);
+                input.on('keydown', ctrl.keyEvent);
+            });
+
+            scope.$on('$destroy', function()
+            {
+                input.off();
+            });
+
+
+            if (angular.isDefined(scope.lxSearchFilter.onInit)) {
+                scope.lxSearchFilter.onInit()(scope.lxSearchFilter.dropdownId);
+            }
+        }
+    }
+
+    LxSearchFilterController.$inject = ['$element', '$scope', '$timeout', 'LxDropdownService', 'LxNotificationService', 'LxUtils'];
+
+    function LxSearchFilterController($element, $scope, $timeout, LxDropdownService, LxNotificationService, LxUtils)
+    {
+        var lxSearchFilter = this;
+        var debouncedAutocomplete;
+        var input;
+        var itemSelected = false;
+
+        lxSearchFilter.blurInput = blurInput;
+        lxSearchFilter.clearInput = clearInput;
+        lxSearchFilter.focusInput = focusInput;
+        lxSearchFilter.getClass = getClass;
+        lxSearchFilter.keyEvent = keyEvent;
+        lxSearchFilter.openInput = openInput;
+        lxSearchFilter.selectItem = selectItem;
+        lxSearchFilter.setInput = setInput;
+        lxSearchFilter.setModel = setModel;
+
+        lxSearchFilter.activeChoiceIndex = -1;
+        lxSearchFilter.color = angular.isDefined(lxSearchFilter.color) ? lxSearchFilter.color : 'black';
+        lxSearchFilter.dropdownId = LxUtils.generateUUID();
+        lxSearchFilter.theme = angular.isDefined(lxSearchFilter.theme) ? lxSearchFilter.theme : 'light';
+
+        ////////////
+
+        function blurInput()
+        {
+            if (angular.isDefined(lxSearchFilter.closed) && lxSearchFilter.closed && !input.val())
+            {
+                $element.velocity(
+                {
+                    width: 40
+                },
+                {
+                    duration: 400,
+                    easing: 'easeOutQuint',
+                    queue: false
+                });
+            }
+
+            if (!input.val())
+            {
+                $timeout(function() {
+                    lxSearchFilter.modelController.$setViewValue(undefined);
+                }, 500);
+            }
+        }
+
+        function clearInput()
+        {
+            lxSearchFilter.modelController.$setViewValue(undefined);
+            lxSearchFilter.modelController.$render();
+
+            // Temporarily disabling search on focus since we never want to trigger it when clearing the input.
+            var searchOnFocus = lxSearchFilter.searchOnFocus;
+            lxSearchFilter.searchOnFocus = false;
+
+            input.focus();
+
+            lxSearchFilter.searchOnFocus = searchOnFocus;
+        }
+
+        function focusInput()
+        {
+            if (!lxSearchFilter.searchOnFocus)
+            {
+                return;
+            }
+
+            updateAutocomplete(lxSearchFilter.modelController.$viewValue, true);
+        }
+
+        function getClass()
+        {
+            var searchFilterClass = [];
+
+            if (angular.isUndefined(lxSearchFilter.closed) || !lxSearchFilter.closed)
+            {
+                searchFilterClass.push('search-filter--opened-mode');
+            }
+
+            if (angular.isDefined(lxSearchFilter.closed) && lxSearchFilter.closed)
+            {
+                searchFilterClass.push('search-filter--closed-mode');
+            }
+
+            if (input.val())
+            {
+                searchFilterClass.push('search-filter--has-clear-button');
+            }
+
+            if (angular.isDefined(lxSearchFilter.color))
+            {
+                searchFilterClass.push('search-filter--' + lxSearchFilter.color);
+            }
+
+            if (angular.isDefined(lxSearchFilter.theme))
+            {
+                searchFilterClass.push('search-filter--theme-' + lxSearchFilter.theme);
+            }
+
+            if (angular.isFunction(lxSearchFilter.autocomplete))
+            {
+                searchFilterClass.push('search-filter--autocomplete');
+            }
+
+            if (LxDropdownService.isOpen(lxSearchFilter.dropdownId))
+            {
+                searchFilterClass.push('search-filter--is-open');
+            }
+
+            return searchFilterClass;
+        }
+
+        function keyEvent(_event)
+        {
+            if (!angular.isFunction(lxSearchFilter.autocomplete))
+            {
+                return;
+            }
+
+            if (!LxDropdownService.isOpen(lxSearchFilter.dropdownId))
+            {
+                lxSearchFilter.activeChoiceIndex = -1;
+            }
+
+            switch (_event.keyCode) {
+                case 13:
+                    keySelect();
+                    if (lxSearchFilter.activeChoiceIndex > -1)
+                    {
+                        _event.preventDefault();
+                    }
+                    break;
+
+                case 38:
+                    keyUp();
+                    _event.preventDefault();
+                    break;
+
+                case 40:
+                    keyDown();
+                    _event.preventDefault();
+                    break;
+            }
+
+            $scope.$apply();
+        }
+
+        function keyDown()
+        {
+            if (lxSearchFilter.autocompleteList.length)
+            {
+                lxSearchFilter.activeChoiceIndex += 1;
+
+                if (lxSearchFilter.activeChoiceIndex >= lxSearchFilter.autocompleteList.length)
+                {
+                    lxSearchFilter.activeChoiceIndex = 0;
+                }
+            }
+        }
+
+        function keySelect()
+        {
+            if (!lxSearchFilter.autocompleteList || lxSearchFilter.activeChoiceIndex === -1)
+            {
+                return;
+            }
+
+            selectItem(lxSearchFilter.autocompleteList[lxSearchFilter.activeChoiceIndex]);
+        }
+
+        function keyUp()
+        {
+            if (lxSearchFilter.autocompleteList.length)
+            {
+                lxSearchFilter.activeChoiceIndex -= 1;
+
+                if (lxSearchFilter.activeChoiceIndex < 0)
+                {
+                    lxSearchFilter.activeChoiceIndex = lxSearchFilter.autocompleteList.length - 1;
+                }
+            }
+        }
+
+        function openDropdown()
+        {
+            LxDropdownService.open(lxSearchFilter.dropdownId, $element);
+        }
+
+        function closeDropdown()
+        {
+            LxDropdownService.close(lxSearchFilter.dropdownId);
+        }
+
+        function onAutocompleteSuccess(autocompleteList)
+        {
+            lxSearchFilter.autocompleteList = autocompleteList;
+
+            (lxSearchFilter.autocompleteList.length) ? openDropdown() : closeDropdown();
+            lxSearchFilter.isLoading = false;
+        }
+
+        function onAutocompleteError(error)
+        {
+            LxNotificationService.error(error);
+            lxSearchFilter.isLoading = false;
+        }
+
+        function openInput()
+        {
+            if (angular.isDefined(lxSearchFilter.closed) && lxSearchFilter.closed)
+            {
+                $element.velocity(
+                {
+                    width: angular.isDefined(lxSearchFilter.width) ? parseInt(lxSearchFilter.width) : 240
+                },
+                {
+                    duration: 400,
+                    easing: 'easeOutQuint',
+                    queue: false,
+                    complete: function()
+                    {
+                        input.focus();
+                    }
+                });
+            }
+            else
+            {
+                input.focus();
+            }
+        }
+
+        function selectItem(_item)
+        {
+            itemSelected = true;
+
+            closeDropdown();
+
+            lxSearchFilter.modelController.$setViewValue(_item);
+            lxSearchFilter.modelController.$render();
+
+            if (angular.isFunction(lxSearchFilter.onSelect))
+            {
+                lxSearchFilter.onSelect(_item);
+            }
+        }
+
+        function setInput(_input)
+        {
+            input = _input;
+        }
+
+        function setModel(_modelController)
+        {
+            lxSearchFilter.modelController = _modelController;
+
+            if (angular.isFunction(lxSearchFilter.autocomplete) && angular.isFunction(lxSearchFilter.autocomplete()))
+            {
+                debouncedAutocomplete = LxUtils.debounce(function()
+                {
+                    lxSearchFilter.isLoading = true;
+                    (lxSearchFilter.autocomplete()).apply(this, arguments);
+                }, 500);
+                lxSearchFilter.modelController.$parsers.push(updateAutocomplete);
+            }
+        }
+
+        function updateAutocomplete(_newValue, _immediate)
+        {
+            if ((_newValue || (angular.isUndefined(_newValue) && lxSearchFilter.searchOnFocus)) && !itemSelected)
+            {
+                if (_immediate)
+                {
+                    lxSearchFilter.isLoading = true;
+                    (lxSearchFilter.autocomplete())(_newValue, onAutocompleteSuccess, onAutocompleteError);
+                }
+                else
+                {
+                    debouncedAutocomplete(_newValue, onAutocompleteSuccess, onAutocompleteError);
+                }
+            }
+            else
+            {
+                debouncedAutocomplete.clear();
+                closeDropdown();
+            }
+
+            itemSelected = false;
+
+            return _newValue;
+        }
+    }
+})();
+
+(function()
+{
+    'use strict';
+
+    angular
+        .module('lumx.switch')
+        .directive('lxSwitch', lxSwitch)
+        .directive('lxSwitchLabel', lxSwitchLabel)
+        .directive('lxSwitchHelp', lxSwitchHelp);
+
+    function lxSwitch()
+    {
+        return {
+            restrict: 'E',
+            templateUrl: 'switch.html',
+            scope:
+            {
+                ngModel: '=',
+                name: '@?',
+                ngTrueValue: '@?',
+                ngFalseValue: '@?',
+                ngChange: '&?',
+                ngDisabled: '=?',
+                lxColor: '@?',
+                lxPosition: '@?',
+                lxTheme: '@?'
+            },
+            controller: LxSwitchController,
+            controllerAs: 'lxSwitch',
+            bindToController: true,
+            transclude: true,
+            replace: true
+        };
+    }
+
+    LxSwitchController.$inject = ['$scope', '$timeout', 'LxUtils'];
+
+    function LxSwitchController($scope, $timeout, LxUtils)
+    {
+        var lxSwitch = this;
+        var switchId;
+        var switchHasChildren;
+        var timer;
+
+        lxSwitch.getSwitchId = getSwitchId;
+        lxSwitch.getSwitchHasChildren = getSwitchHasChildren;
+        lxSwitch.setSwitchId = setSwitchId;
+        lxSwitch.setSwitchHasChildren = setSwitchHasChildren;
+        lxSwitch.triggerNgChange = triggerNgChange;
+
+        $scope.$on('$destroy', function()
+        {
+            $timeout.cancel(timer);
+        });
+
+        init();
+
+        ////////////
+
+        function getSwitchId()
+        {
+            return switchId;
+        }
+
+        function getSwitchHasChildren()
+        {
+            return switchHasChildren;
+        }
+
+        function init()
+        {
+            setSwitchId(LxUtils.generateUUID());
+            setSwitchHasChildren(false);
+
+            lxSwitch.ngTrueValue = angular.isUndefined(lxSwitch.ngTrueValue) ? true : lxSwitch.ngTrueValue;
+            lxSwitch.ngFalseValue = angular.isUndefined(lxSwitch.ngFalseValue) ? false : lxSwitch.ngFalseValue;
+            lxSwitch.lxColor = angular.isUndefined(lxSwitch.lxColor) ? 'accent' : lxSwitch.lxColor;
+            lxSwitch.lxPosition = angular.isUndefined(lxSwitch.lxPosition) ? 'left' : lxSwitch.lxPosition;
+        }
+
+        function setSwitchId(_switchId)
+        {
+            switchId = _switchId;
+        }
+
+        function setSwitchHasChildren(_switchHasChildren)
+        {
+            switchHasChildren = _switchHasChildren;
+        }
+
+        function triggerNgChange()
+        {
+            timer = $timeout(lxSwitch.ngChange);
+        }
+    }
+
+    function lxSwitchLabel()
+    {
+        return {
+            restrict: 'AE',
+            require: ['^lxSwitch', '^lxSwitchLabel'],
+            templateUrl: 'switch-label.html',
+            link: link,
+            controller: LxSwitchLabelController,
+            controllerAs: 'lxSwitchLabel',
+            bindToController: true,
+            transclude: true,
+            replace: true
+        };
+
+        function link(scope, element, attrs, ctrls)
+        {
+            ctrls[0].setSwitchHasChildren(true);
+            ctrls[1].setSwitchId(ctrls[0].getSwitchId());
+        }
+    }
+
+    function LxSwitchLabelController()
+    {
+        var lxSwitchLabel = this;
+        var switchId;
+
+        lxSwitchLabel.getSwitchId = getSwitchId;
+        lxSwitchLabel.setSwitchId = setSwitchId;
+
+        ////////////
+
+        function getSwitchId()
+        {
+            return switchId;
+        }
+
+        function setSwitchId(_switchId)
+        {
+            switchId = _switchId;
+        }
+    }
+
+    function lxSwitchHelp()
+    {
+        return {
+            restrict: 'AE',
+            require: '^lxSwitch',
+            templateUrl: 'switch-help.html',
+            transclude: true,
+            replace: true
+        };
+    }
+})();
+
+(function()
+{
+    'use strict';
+
+    angular
         .module('lumx.stepper')
         .directive('lxStepper', lxStepper)
         .directive('lxStep', lxStep)
@@ -6155,156 +6305,6 @@
         {
             lxStepNav.parent = parent;
         }
-    }
-})();
-
-(function()
-{
-    'use strict';
-
-    angular
-        .module('lumx.switch')
-        .directive('lxSwitch', lxSwitch)
-        .directive('lxSwitchLabel', lxSwitchLabel)
-        .directive('lxSwitchHelp', lxSwitchHelp);
-
-    function lxSwitch()
-    {
-        return {
-            restrict: 'E',
-            templateUrl: 'switch.html',
-            scope:
-            {
-                ngModel: '=',
-                name: '@?',
-                ngTrueValue: '@?',
-                ngFalseValue: '@?',
-                ngChange: '&?',
-                ngDisabled: '=?',
-                lxColor: '@?',
-                lxPosition: '@?',
-                lxTheme: '@?'
-            },
-            controller: LxSwitchController,
-            controllerAs: 'lxSwitch',
-            bindToController: true,
-            transclude: true,
-            replace: true
-        };
-    }
-
-    LxSwitchController.$inject = ['$scope', '$timeout', 'LxUtils'];
-
-    function LxSwitchController($scope, $timeout, LxUtils)
-    {
-        var lxSwitch = this;
-        var switchId;
-        var switchHasChildren;
-        var timer;
-
-        lxSwitch.getSwitchId = getSwitchId;
-        lxSwitch.getSwitchHasChildren = getSwitchHasChildren;
-        lxSwitch.setSwitchId = setSwitchId;
-        lxSwitch.setSwitchHasChildren = setSwitchHasChildren;
-        lxSwitch.triggerNgChange = triggerNgChange;
-
-        $scope.$on('$destroy', function()
-        {
-            $timeout.cancel(timer);
-        });
-
-        init();
-
-        ////////////
-
-        function getSwitchId()
-        {
-            return switchId;
-        }
-
-        function getSwitchHasChildren()
-        {
-            return switchHasChildren;
-        }
-
-        function init()
-        {
-            setSwitchId(LxUtils.generateUUID());
-            setSwitchHasChildren(false);
-
-            lxSwitch.ngTrueValue = angular.isUndefined(lxSwitch.ngTrueValue) ? true : lxSwitch.ngTrueValue;
-            lxSwitch.ngFalseValue = angular.isUndefined(lxSwitch.ngFalseValue) ? false : lxSwitch.ngFalseValue;
-            lxSwitch.lxColor = angular.isUndefined(lxSwitch.lxColor) ? 'accent' : lxSwitch.lxColor;
-            lxSwitch.lxPosition = angular.isUndefined(lxSwitch.lxPosition) ? 'left' : lxSwitch.lxPosition;
-        }
-
-        function setSwitchId(_switchId)
-        {
-            switchId = _switchId;
-        }
-
-        function setSwitchHasChildren(_switchHasChildren)
-        {
-            switchHasChildren = _switchHasChildren;
-        }
-
-        function triggerNgChange()
-        {
-            timer = $timeout(lxSwitch.ngChange);
-        }
-    }
-
-    function lxSwitchLabel()
-    {
-        return {
-            restrict: 'AE',
-            require: ['^lxSwitch', '^lxSwitchLabel'],
-            templateUrl: 'switch-label.html',
-            link: link,
-            controller: LxSwitchLabelController,
-            controllerAs: 'lxSwitchLabel',
-            bindToController: true,
-            transclude: true,
-            replace: true
-        };
-
-        function link(scope, element, attrs, ctrls)
-        {
-            ctrls[0].setSwitchHasChildren(true);
-            ctrls[1].setSwitchId(ctrls[0].getSwitchId());
-        }
-    }
-
-    function LxSwitchLabelController()
-    {
-        var lxSwitchLabel = this;
-        var switchId;
-
-        lxSwitchLabel.getSwitchId = getSwitchId;
-        lxSwitchLabel.setSwitchId = setSwitchId;
-
-        ////////////
-
-        function getSwitchId()
-        {
-            return switchId;
-        }
-
-        function setSwitchId(_switchId)
-        {
-            switchId = _switchId;
-        }
-    }
-
-    function lxSwitchHelp()
-    {
-        return {
-            restrict: 'AE',
-            require: '^lxSwitch',
-            templateUrl: 'switch-help.html',
-            transclude: true,
-            replace: true
-        };
     }
 })();
 
