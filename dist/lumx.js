@@ -700,6 +700,370 @@
     'use strict';
 
     angular
+        .module('lumx.data-table')
+        .directive('lxDataTable', lxDataTable);
+
+    function lxDataTable()
+    {
+        return {
+            restrict: 'E',
+            templateUrl: 'data-table.html',
+            scope:
+            {
+                activable: '=?lxActivable',
+                border: '=?lxBorder',
+                bulk: '=?lxBulk',
+                selectable: '=?lxSelectable',
+                thumbnail: '=?lxThumbnail',
+                tbody: '=lxTbody',
+                thead: '=lxThead'
+            },
+            link: link,
+            controller: LxDataTableController,
+            controllerAs: 'lxDataTable',
+            bindToController: true,
+            transclude: true,
+            replace: true
+        };
+
+        function link(scope, element, attrs, ctrl)
+        {
+            attrs.$observe('id', function(_newId)
+            {
+                ctrl.id = _newId;
+            });
+        }
+    }
+
+    LxDataTableController.$inject = ['$rootScope', '$sce', '$scope'];
+
+    function LxDataTableController($rootScope, $sce, $scope)
+    {
+        var lxDataTable = this;
+
+        lxDataTable.areAllRowsSelected = areAllRowsSelected;
+        lxDataTable.border = angular.isUndefined(lxDataTable.border) ? true : lxDataTable.border;
+        lxDataTable.bulk = angular.isUndefined(lxDataTable.bulk) ? true : lxDataTable.bulk;
+        lxDataTable.sort = sort;
+        lxDataTable.toggleActivation = toggleActivation;
+        lxDataTable.toggleAllSelected = toggleAllSelected;
+        lxDataTable.toggleSelection = toggleSelection;
+
+        lxDataTable.$sce = $sce;
+        lxDataTable.allRowsSelected = false;
+        lxDataTable.selectedRows = [];
+
+        $scope.$on('lx-data-table__select', function(event, id, row)
+        {
+            if (id === lxDataTable.id && angular.isDefined(row))
+            {
+                if (angular.isArray(row) && row.length > 0)
+                {
+                    row = row[0];
+                }
+                _select(row);
+            }
+        });
+
+        $scope.$on('lx-data-table__select-all', function(event, id)
+        {
+            if (id === lxDataTable.id)
+            {
+                _selectAll();
+            }
+        });
+
+        $scope.$on('lx-data-table__unselect', function(event, id, row)
+        {
+            if (id === lxDataTable.id && angular.isDefined(row))
+            {
+                if (angular.isArray(row) && row.length > 0)
+                {
+                    row = row[0];
+                }
+                _unselect(row);
+            }
+        });
+
+        $scope.$on('lx-data-table__unselect-all', function(event, id)
+        {
+            if (id === lxDataTable.id)
+            {
+                _unselectAll();
+            }
+        });
+
+        $scope.$on('lx-data-table__activate', function(event, id, row)
+        {
+            if (id === lxDataTable.id && angular.isDefined(row))
+            {
+                if (angular.isArray(row) && row.length > 0)
+                {
+                    row = row[0];
+                }
+                _activate(row);
+            }
+        });
+
+        $scope.$on('lx-data-table__deactivate', function(event, id, row)
+        {
+            if (id === lxDataTable.id && angular.isDefined(row))
+            {
+                if (angular.isArray(row) && row.length > 0)
+                {
+                    row = row[0];
+                }
+                _deactivate(row);
+            }
+        });
+
+        ////////////
+
+        function _activate(row)
+        {
+            toggleActivation(row, true);
+        }
+
+        function _deactivate(row)
+        {
+            toggleActivation(row, false);
+        }
+
+        function _select(row)
+        {
+            toggleSelection(row, true);
+        }
+
+        function _selectAll()
+        {
+            lxDataTable.selectedRows.length = 0;
+
+            for (var i = 0, len = lxDataTable.tbody.length; i < len; i++)
+            {
+                if (!lxDataTable.tbody[i].lxDataTableDisabled)
+                {
+                    lxDataTable.tbody[i].lxDataTableSelected = true;
+                    lxDataTable.selectedRows.push(lxDataTable.tbody[i]);
+                }
+            }
+
+            lxDataTable.allRowsSelected = true;
+
+            $rootScope.$broadcast('lx-data-table__unselected', lxDataTable.id, lxDataTable.selectedRows);
+        }
+
+        function _unselect(row)
+        {
+            toggleSelection(row, false);
+        }
+
+        function _unselectAll()
+        {
+            for (var i = 0, len = lxDataTable.tbody.length; i < len; i++)
+            {
+                if (!lxDataTable.tbody[i].lxDataTableDisabled)
+                {
+                    lxDataTable.tbody[i].lxDataTableSelected = false;
+                }
+            }
+
+            lxDataTable.allRowsSelected = false;
+            lxDataTable.selectedRows.length = 0;
+
+            $rootScope.$broadcast('lx-data-table__selected', lxDataTable.id, lxDataTable.selectedRows);
+        }
+
+        ////////////
+
+        function areAllRowsSelected()
+        {
+            var displayedRows = 0;
+
+            for (var i = 0, len = lxDataTable.tbody.length; i < len; i++)
+            {
+                if (!lxDataTable.tbody[i].lxDataTableDisabled)
+                {
+                    displayedRows++;
+                }
+            }
+
+            if (displayedRows === lxDataTable.selectedRows.length)
+            {
+                lxDataTable.allRowsSelected = true;
+            }
+            else
+            {
+                lxDataTable.allRowsSelected = false;
+            }
+        }
+
+        function sort(_column)
+        {
+            if (!_column.sortable)
+            {
+                return;
+            }
+
+            for (var i = 0, len = lxDataTable.thead.length; i < len; i++)
+            {
+                if (lxDataTable.thead[i].sortable && lxDataTable.thead[i].name !== _column.name)
+                {
+                    lxDataTable.thead[i].sort = undefined;
+                }
+            }
+
+            if (!_column.sort || _column.sort === 'desc')
+            {
+                _column.sort = 'asc';
+            }
+            else
+            {
+                _column.sort = 'desc';
+            }
+
+            $rootScope.$broadcast('lx-data-table__sorted', lxDataTable.id, _column);
+        }
+
+        function toggleActivation(_row, _newActivatedStatus)
+        {
+            if (_row.lxDataTableDisabled || !lxDataTable.activable)
+            {
+                return;
+            }
+
+            for (var i = 0, len = lxDataTable.tbody.length; i < len; i++)
+            {
+                if (lxDataTable.tbody.indexOf(_row) !== i)
+                {
+                    lxDataTable.tbody[i].lxDataTableActivated = false;
+                }
+            }
+
+            _row.lxDataTableActivated = !_row.lxDataTableActivated;
+
+            if (_row.lxDataTableActivated)
+            {
+                $rootScope.$broadcast('lx-data-table__activated', lxDataTable.id, _row);
+            }
+            else
+            {
+                $rootScope.$broadcast('lx-data-table__deactivated', lxDataTable.id, _row);
+            }
+        }
+
+        function toggleAllSelected()
+        {
+            if (!lxDataTable.bulk)
+            {
+                return;
+            }
+
+            if (lxDataTable.allRowsSelected)
+            {
+                _unselectAll();
+            }
+            else
+            {
+                _selectAll();
+            }
+        }
+
+        function toggleSelection(_row, _newSelectedStatus, _event)
+        {
+            if (_row.lxDataTableDisabled || !lxDataTable.selectable)
+            {
+                return;
+            }
+
+            if (angular.isDefined(_event)) {
+                _event.stopPropagation();
+            }
+
+            _row.lxDataTableSelected = angular.isDefined(_newSelectedStatus) ? _newSelectedStatus : !_row.lxDataTableSelected;
+
+            if (_row.lxDataTableSelected)
+            {
+                // Make sure it's not already in.
+                if (lxDataTable.selectedRows.length === 0 || (lxDataTable.selectedRows.length && lxDataTable.selectedRows.indexOf(_row) === -1))
+                {
+                    lxDataTable.selectedRows.push(_row);
+                    lxDataTable.areAllRowsSelected();
+
+                    $rootScope.$broadcast('lx-data-table__selected', lxDataTable.id, lxDataTable.selectedRows, _row);
+                }
+            }
+            else
+            {
+                if (lxDataTable.selectedRows.length && lxDataTable.selectedRows.indexOf(_row) > -1)
+                {
+                    lxDataTable.selectedRows.splice(lxDataTable.selectedRows.indexOf(_row), 1);
+                    lxDataTable.allRowsSelected = false;
+
+                    $rootScope.$broadcast('lx-data-table__unselected', lxDataTable.id, lxDataTable.selectedRows, _row);
+                }
+            }
+        }
+    }
+})();
+
+(function()
+{
+    'use strict';
+
+    angular
+        .module('lumx.data-table')
+        .service('LxDataTableService', LxDataTableService);
+
+    LxDataTableService.$inject = ['$rootScope'];
+
+    function LxDataTableService($rootScope)
+    {
+        var service = this;
+
+        service.select = select;
+        service.selectAll = selectAll;
+        service.unselect = unselect;
+        service.unselectAll = unselectAll;
+
+        ////////////
+
+        function select(_dataTableId, row)
+        {
+            $rootScope.$broadcast('lx-data-table__select', _dataTableId, row);
+        }
+
+        function selectAll(_dataTableId)
+        {
+            $rootScope.$broadcast('lx-data-table__select-all', _dataTableId);
+        }
+
+        function unselect(_dataTableId, row)
+        {
+            $rootScope.$broadcast('lx-data-table__unselect', _dataTableId, row);
+        }
+
+        function unselectAll(_dataTableId)
+        {
+            $rootScope.$broadcast('lx-data-table__unselect-all', _dataTableId);
+        }
+
+        function activate(_dataTableId, row)
+        {
+            $rootScope.$broadcast('lx-data-table__activate', _dataTableId, row);
+        }
+
+        function deactivate(_dataTableId, row)
+        {
+            $rootScope.$broadcast('lx-data-table__deactivate', _dataTableId, row);
+        }
+    }
+})();
+
+(function()
+{
+    'use strict';
+
+    angular
         .module('lumx.date-picker')
         .directive('lxDatePicker', lxDatePicker);
 
@@ -1481,370 +1845,6 @@
         function close(_dialogId, _canceled, _params)
         {
             $rootScope.$broadcast('lx-dialog__close', _dialogId, _canceled, _params);
-        }
-    }
-})();
-
-(function()
-{
-    'use strict';
-
-    angular
-        .module('lumx.data-table')
-        .directive('lxDataTable', lxDataTable);
-
-    function lxDataTable()
-    {
-        return {
-            restrict: 'E',
-            templateUrl: 'data-table.html',
-            scope:
-            {
-                activable: '=?lxActivable',
-                border: '=?lxBorder',
-                bulk: '=?lxBulk',
-                selectable: '=?lxSelectable',
-                thumbnail: '=?lxThumbnail',
-                tbody: '=lxTbody',
-                thead: '=lxThead'
-            },
-            link: link,
-            controller: LxDataTableController,
-            controllerAs: 'lxDataTable',
-            bindToController: true,
-            transclude: true,
-            replace: true
-        };
-
-        function link(scope, element, attrs, ctrl)
-        {
-            attrs.$observe('id', function(_newId)
-            {
-                ctrl.id = _newId;
-            });
-        }
-    }
-
-    LxDataTableController.$inject = ['$rootScope', '$sce', '$scope'];
-
-    function LxDataTableController($rootScope, $sce, $scope)
-    {
-        var lxDataTable = this;
-
-        lxDataTable.areAllRowsSelected = areAllRowsSelected;
-        lxDataTable.border = angular.isUndefined(lxDataTable.border) ? true : lxDataTable.border;
-        lxDataTable.bulk = angular.isUndefined(lxDataTable.bulk) ? true : lxDataTable.bulk;
-        lxDataTable.sort = sort;
-        lxDataTable.toggleActivation = toggleActivation;
-        lxDataTable.toggleAllSelected = toggleAllSelected;
-        lxDataTable.toggleSelection = toggleSelection;
-
-        lxDataTable.$sce = $sce;
-        lxDataTable.allRowsSelected = false;
-        lxDataTable.selectedRows = [];
-
-        $scope.$on('lx-data-table__select', function(event, id, row)
-        {
-            if (id === lxDataTable.id && angular.isDefined(row))
-            {
-                if (angular.isArray(row) && row.length > 0)
-                {
-                    row = row[0];
-                }
-                _select(row);
-            }
-        });
-
-        $scope.$on('lx-data-table__select-all', function(event, id)
-        {
-            if (id === lxDataTable.id)
-            {
-                _selectAll();
-            }
-        });
-
-        $scope.$on('lx-data-table__unselect', function(event, id, row)
-        {
-            if (id === lxDataTable.id && angular.isDefined(row))
-            {
-                if (angular.isArray(row) && row.length > 0)
-                {
-                    row = row[0];
-                }
-                _unselect(row);
-            }
-        });
-
-        $scope.$on('lx-data-table__unselect-all', function(event, id)
-        {
-            if (id === lxDataTable.id)
-            {
-                _unselectAll();
-            }
-        });
-
-        $scope.$on('lx-data-table__activate', function(event, id, row)
-        {
-            if (id === lxDataTable.id && angular.isDefined(row))
-            {
-                if (angular.isArray(row) && row.length > 0)
-                {
-                    row = row[0];
-                }
-                _activate(row);
-            }
-        });
-
-        $scope.$on('lx-data-table__deactivate', function(event, id, row)
-        {
-            if (id === lxDataTable.id && angular.isDefined(row))
-            {
-                if (angular.isArray(row) && row.length > 0)
-                {
-                    row = row[0];
-                }
-                _deactivate(row);
-            }
-        });
-
-        ////////////
-
-        function _activate(row)
-        {
-            toggleActivation(row, true);
-        }
-
-        function _deactivate(row)
-        {
-            toggleActivation(row, false);
-        }
-
-        function _select(row)
-        {
-            toggleSelection(row, true);
-        }
-
-        function _selectAll()
-        {
-            lxDataTable.selectedRows.length = 0;
-
-            for (var i = 0, len = lxDataTable.tbody.length; i < len; i++)
-            {
-                if (!lxDataTable.tbody[i].lxDataTableDisabled)
-                {
-                    lxDataTable.tbody[i].lxDataTableSelected = true;
-                    lxDataTable.selectedRows.push(lxDataTable.tbody[i]);
-                }
-            }
-
-            lxDataTable.allRowsSelected = true;
-
-            $rootScope.$broadcast('lx-data-table__unselected', lxDataTable.id, lxDataTable.selectedRows);
-        }
-
-        function _unselect(row)
-        {
-            toggleSelection(row, false);
-        }
-
-        function _unselectAll()
-        {
-            for (var i = 0, len = lxDataTable.tbody.length; i < len; i++)
-            {
-                if (!lxDataTable.tbody[i].lxDataTableDisabled)
-                {
-                    lxDataTable.tbody[i].lxDataTableSelected = false;
-                }
-            }
-
-            lxDataTable.allRowsSelected = false;
-            lxDataTable.selectedRows.length = 0;
-
-            $rootScope.$broadcast('lx-data-table__selected', lxDataTable.id, lxDataTable.selectedRows);
-        }
-
-        ////////////
-
-        function areAllRowsSelected()
-        {
-            var displayedRows = 0;
-
-            for (var i = 0, len = lxDataTable.tbody.length; i < len; i++)
-            {
-                if (!lxDataTable.tbody[i].lxDataTableDisabled)
-                {
-                    displayedRows++;
-                }
-            }
-
-            if (displayedRows === lxDataTable.selectedRows.length)
-            {
-                lxDataTable.allRowsSelected = true;
-            }
-            else
-            {
-                lxDataTable.allRowsSelected = false;
-            }
-        }
-
-        function sort(_column)
-        {
-            if (!_column.sortable)
-            {
-                return;
-            }
-
-            for (var i = 0, len = lxDataTable.thead.length; i < len; i++)
-            {
-                if (lxDataTable.thead[i].sortable && lxDataTable.thead[i].name !== _column.name)
-                {
-                    lxDataTable.thead[i].sort = undefined;
-                }
-            }
-
-            if (!_column.sort || _column.sort === 'desc')
-            {
-                _column.sort = 'asc';
-            }
-            else
-            {
-                _column.sort = 'desc';
-            }
-
-            $rootScope.$broadcast('lx-data-table__sorted', lxDataTable.id, _column);
-        }
-
-        function toggleActivation(_row, _newActivatedStatus)
-        {
-            if (_row.lxDataTableDisabled || !lxDataTable.activable)
-            {
-                return;
-            }
-
-            for (var i = 0, len = lxDataTable.tbody.length; i < len; i++)
-            {
-                if (lxDataTable.tbody.indexOf(_row) !== i)
-                {
-                    lxDataTable.tbody[i].lxDataTableActivated = false;
-                }
-            }
-
-            _row.lxDataTableActivated = !_row.lxDataTableActivated;
-
-            if (_row.lxDataTableActivated)
-            {
-                $rootScope.$broadcast('lx-data-table__activated', lxDataTable.id, _row);
-            }
-            else
-            {
-                $rootScope.$broadcast('lx-data-table__deactivated', lxDataTable.id, _row);
-            }
-        }
-
-        function toggleAllSelected()
-        {
-            if (!lxDataTable.bulk)
-            {
-                return;
-            }
-
-            if (lxDataTable.allRowsSelected)
-            {
-                _unselectAll();
-            }
-            else
-            {
-                _selectAll();
-            }
-        }
-
-        function toggleSelection(_row, _newSelectedStatus, _event)
-        {
-            if (_row.lxDataTableDisabled || !lxDataTable.selectable)
-            {
-                return;
-            }
-
-            if (angular.isDefined(_event)) {
-                _event.stopPropagation();
-            }
-
-            _row.lxDataTableSelected = angular.isDefined(_newSelectedStatus) ? _newSelectedStatus : !_row.lxDataTableSelected;
-
-            if (_row.lxDataTableSelected)
-            {
-                // Make sure it's not already in.
-                if (lxDataTable.selectedRows.length === 0 || (lxDataTable.selectedRows.length && lxDataTable.selectedRows.indexOf(_row) === -1))
-                {
-                    lxDataTable.selectedRows.push(_row);
-                    lxDataTable.areAllRowsSelected();
-
-                    $rootScope.$broadcast('lx-data-table__selected', lxDataTable.id, lxDataTable.selectedRows, _row);
-                }
-            }
-            else
-            {
-                if (lxDataTable.selectedRows.length && lxDataTable.selectedRows.indexOf(_row) > -1)
-                {
-                    lxDataTable.selectedRows.splice(lxDataTable.selectedRows.indexOf(_row), 1);
-                    lxDataTable.allRowsSelected = false;
-
-                    $rootScope.$broadcast('lx-data-table__unselected', lxDataTable.id, lxDataTable.selectedRows, _row);
-                }
-            }
-        }
-    }
-})();
-
-(function()
-{
-    'use strict';
-
-    angular
-        .module('lumx.data-table')
-        .service('LxDataTableService', LxDataTableService);
-
-    LxDataTableService.$inject = ['$rootScope'];
-
-    function LxDataTableService($rootScope)
-    {
-        var service = this;
-
-        service.select = select;
-        service.selectAll = selectAll;
-        service.unselect = unselect;
-        service.unselectAll = unselectAll;
-
-        ////////////
-
-        function select(_dataTableId, row)
-        {
-            $rootScope.$broadcast('lx-data-table__select', _dataTableId, row);
-        }
-
-        function selectAll(_dataTableId)
-        {
-            $rootScope.$broadcast('lx-data-table__select-all', _dataTableId);
-        }
-
-        function unselect(_dataTableId, row)
-        {
-            $rootScope.$broadcast('lx-data-table__unselect', _dataTableId, row);
-        }
-
-        function unselectAll(_dataTableId)
-        {
-            $rootScope.$broadcast('lx-data-table__unselect-all', _dataTableId);
-        }
-
-        function activate(_dataTableId, row)
-        {
-            $rootScope.$broadcast('lx-data-table__activate', _dataTableId, row);
-        }
-
-        function deactivate(_dataTableId, row)
-        {
-            $rootScope.$broadcast('lx-data-table__deactivate', _dataTableId, row);
         }
     }
 })();
@@ -2862,66 +2862,6 @@
     'use strict';
 
     angular
-        .module('lumx.icon')
-        .directive('lxIcon', lxIcon);
-
-    function lxIcon()
-    {
-        return {
-            restrict: 'E',
-            templateUrl: 'icon.html',
-            scope:
-            {
-                color: '@?lxColor',
-                id: '@lxId',
-                size: '@?lxSize',
-                type: '@?lxType'
-            },
-            controller: LxIconController,
-            controllerAs: 'lxIcon',
-            bindToController: true,
-            replace: true
-        };
-    }
-
-    function LxIconController()
-    {
-        var lxIcon = this;
-
-        lxIcon.getClass = getClass;
-
-        ////////////
-
-        function getClass()
-        {
-            var iconClass = [];
-
-            iconClass.push('mdi-' + lxIcon.id);
-
-            if (angular.isDefined(lxIcon.size))
-            {
-                iconClass.push('icon--' + lxIcon.size);
-            }
-
-            if (angular.isDefined(lxIcon.color))
-            {
-                iconClass.push('icon--' + lxIcon.color);
-            }
-
-            if (angular.isDefined(lxIcon.type))
-            {
-                iconClass.push('icon--' + lxIcon.type);
-            }
-
-            return iconClass;
-        }
-    }
-})();
-(function()
-{
-    'use strict';
-
-    angular
         .module('lumx.file-input')
         .directive('lxFileInput', lxFileInput);
 
@@ -3008,6 +2948,66 @@
             }
 
             timer = $timeout(setFileName);
+        }
+    }
+})();
+(function()
+{
+    'use strict';
+
+    angular
+        .module('lumx.icon')
+        .directive('lxIcon', lxIcon);
+
+    function lxIcon()
+    {
+        return {
+            restrict: 'E',
+            templateUrl: 'icon.html',
+            scope:
+            {
+                color: '@?lxColor',
+                id: '@lxId',
+                size: '@?lxSize',
+                type: '@?lxType'
+            },
+            controller: LxIconController,
+            controllerAs: 'lxIcon',
+            bindToController: true,
+            replace: true
+        };
+    }
+
+    function LxIconController()
+    {
+        var lxIcon = this;
+
+        lxIcon.getClass = getClass;
+
+        ////////////
+
+        function getClass()
+        {
+            var iconClass = [];
+
+            iconClass.push('mdi-' + lxIcon.id);
+
+            if (angular.isDefined(lxIcon.size))
+            {
+                iconClass.push('icon--' + lxIcon.size);
+            }
+
+            if (angular.isDefined(lxIcon.color))
+            {
+                iconClass.push('icon--' + lxIcon.color);
+            }
+
+            if (angular.isDefined(lxIcon.type))
+            {
+                iconClass.push('icon--' + lxIcon.type);
+            }
+
+            return iconClass;
         }
     }
 })();
@@ -3472,171 +3472,6 @@
     'use strict';
 
     angular
-        .module('lumx.ripple')
-        .directive('lxRipple', lxRipple);
-
-    lxRipple.$inject = ['$timeout'];
-
-    function lxRipple($timeout)
-    {
-        return {
-            restrict: 'A',
-            link: link,
-        };
-
-        function link(scope, element, attrs)
-        {
-            var timer;
-
-            element
-                .css(
-                {
-                    position: 'relative',
-                    overflow: 'hidden'
-                })
-                .on('mousedown', function(e)
-                {
-                    var ripple;
-
-                    if (element.find('.ripple').length === 0)
-                    {
-                        ripple = angular.element('<span/>',
-                        {
-                            class: 'ripple'
-                        });
-
-                        if (attrs.lxRipple)
-                        {
-                            ripple.addClass('bgc-' + attrs.lxRipple);
-                        }
-
-                        element.prepend(ripple);
-                    }
-                    else
-                    {
-                        ripple = element.find('.ripple');
-                    }
-
-                    ripple.removeClass('ripple--is-animated');
-
-                    if (!ripple.height() && !ripple.width())
-                    {
-                        var diameter = Math.max(element.outerWidth(), element.outerHeight());
-
-                        ripple.css(
-                        {
-                            height: diameter,
-                            width: diameter
-                        });
-                    }
-
-                    var x = e.pageX - element.offset().left - ripple.width() / 2;
-                    var y = e.pageY - element.offset().top - ripple.height() / 2;
-
-                    ripple.css(
-                    {
-                        top: y + 'px',
-                        left: x + 'px'
-                    }).addClass('ripple--is-animated');
-
-                    timer = $timeout(function()
-                    {
-                        ripple.removeClass('ripple--is-animated');
-                    }, 651);
-                });
-
-            scope.$on('$destroy', function()
-            {
-                $timeout.cancel(timer);
-                element.off();
-            });
-        }
-    }
-})();
-(function()
-{
-    'use strict';
-
-    angular
-        .module('lumx.progress')
-        .directive('lxProgress', lxProgress);
-
-    function lxProgress()
-    {
-        return {
-            restrict: 'E',
-            templateUrl: 'progress.html',
-            scope:
-            {
-                lxColor: '@?',
-                lxDiameter: '@?',
-                lxType: '@',
-                lxValue: '@'
-            },
-            controller: LxProgressController,
-            controllerAs: 'lxProgress',
-            bindToController: true,
-            replace: true
-        };
-    }
-
-    function LxProgressController()
-    {
-        var lxProgress = this;
-
-        lxProgress.getCircularProgressValue = getCircularProgressValue;
-        lxProgress.getLinearProgressValue = getLinearProgressValue;
-        lxProgress.getProgressDiameter = getProgressDiameter;
-
-        ////////////
-
-        function getCircularProgressValue()
-        {
-            if (angular.isDefined(lxProgress.lxValue))
-            {
-                return {
-                    'stroke-dasharray': lxProgress.lxValue * 1.26 + ',200'
-                };
-            }
-        }
-
-        function getLinearProgressValue()
-        {
-            if (angular.isDefined(lxProgress.lxValue))
-            {
-                return {
-                    'transform': 'scale(' + lxProgress.lxValue / 100 + ', 1)'
-                };
-            }
-        }
-
-        function getProgressDiameter()
-        {
-            if (lxProgress.lxType === 'circular')
-            {
-                return {
-                    'transform': 'scale(' + parseInt(lxProgress.lxDiameter) / 100 + ')'
-                };
-            }
-
-            return;
-        }
-
-        function init()
-        {
-            lxProgress.lxDiameter = angular.isDefined(lxProgress.lxDiameter) ? lxProgress.lxDiameter : 100;
-            lxProgress.lxColor = angular.isDefined(lxProgress.lxColor) ? lxProgress.lxColor : 'primary';
-            lxProgress.lxClass = angular.isDefined(lxProgress.lxValue) ? 'progress-container--determinate' : 'progress-container--indeterminate';
-        }
-
-        this.$onInit = init;
-    }
-})();
-(function()
-{
-    'use strict';
-
-    angular
         .module('lumx.radio-button')
         .directive('lxRadioGroup', lxRadioGroup)
         .directive('lxRadioButton', lxRadioButton)
@@ -3796,6 +3631,171 @@
     }
 })();
 
+(function()
+{
+    'use strict';
+
+    angular
+        .module('lumx.progress')
+        .directive('lxProgress', lxProgress);
+
+    function lxProgress()
+    {
+        return {
+            restrict: 'E',
+            templateUrl: 'progress.html',
+            scope:
+            {
+                lxColor: '@?',
+                lxDiameter: '@?',
+                lxType: '@',
+                lxValue: '@'
+            },
+            controller: LxProgressController,
+            controllerAs: 'lxProgress',
+            bindToController: true,
+            replace: true
+        };
+    }
+
+    function LxProgressController()
+    {
+        var lxProgress = this;
+
+        lxProgress.getCircularProgressValue = getCircularProgressValue;
+        lxProgress.getLinearProgressValue = getLinearProgressValue;
+        lxProgress.getProgressDiameter = getProgressDiameter;
+
+        ////////////
+
+        function getCircularProgressValue()
+        {
+            if (angular.isDefined(lxProgress.lxValue))
+            {
+                return {
+                    'stroke-dasharray': lxProgress.lxValue * 1.26 + ',200'
+                };
+            }
+        }
+
+        function getLinearProgressValue()
+        {
+            if (angular.isDefined(lxProgress.lxValue))
+            {
+                return {
+                    'transform': 'scale(' + lxProgress.lxValue / 100 + ', 1)'
+                };
+            }
+        }
+
+        function getProgressDiameter()
+        {
+            if (lxProgress.lxType === 'circular')
+            {
+                return {
+                    'transform': 'scale(' + parseInt(lxProgress.lxDiameter) / 100 + ')'
+                };
+            }
+
+            return;
+        }
+
+        function init()
+        {
+            lxProgress.lxDiameter = angular.isDefined(lxProgress.lxDiameter) ? lxProgress.lxDiameter : 100;
+            lxProgress.lxColor = angular.isDefined(lxProgress.lxColor) ? lxProgress.lxColor : 'primary';
+            lxProgress.lxClass = angular.isDefined(lxProgress.lxValue) ? 'progress-container--determinate' : 'progress-container--indeterminate';
+        }
+
+        this.$onInit = init;
+    }
+})();
+(function()
+{
+    'use strict';
+
+    angular
+        .module('lumx.ripple')
+        .directive('lxRipple', lxRipple);
+
+    lxRipple.$inject = ['$timeout'];
+
+    function lxRipple($timeout)
+    {
+        return {
+            restrict: 'A',
+            link: link,
+        };
+
+        function link(scope, element, attrs)
+        {
+            var timer;
+
+            element
+                .css(
+                {
+                    position: 'relative',
+                    overflow: 'hidden'
+                })
+                .on('mousedown', function(e)
+                {
+                    var ripple;
+
+                    if (element.find('.ripple').length === 0)
+                    {
+                        ripple = angular.element('<span/>',
+                        {
+                            class: 'ripple'
+                        });
+
+                        if (attrs.lxRipple)
+                        {
+                            ripple.addClass('bgc-' + attrs.lxRipple);
+                        }
+
+                        element.prepend(ripple);
+                    }
+                    else
+                    {
+                        ripple = element.find('.ripple');
+                    }
+
+                    ripple.removeClass('ripple--is-animated');
+
+                    if (!ripple.height() && !ripple.width())
+                    {
+                        var diameter = Math.max(element.outerWidth(), element.outerHeight());
+
+                        ripple.css(
+                        {
+                            height: diameter,
+                            width: diameter
+                        });
+                    }
+
+                    var x = e.pageX - element.offset().left - ripple.width() / 2;
+                    var y = e.pageY - element.offset().top - ripple.height() / 2;
+
+                    ripple.css(
+                    {
+                        top: y + 'px',
+                        left: x + 'px'
+                    }).addClass('ripple--is-animated');
+
+                    timer = $timeout(function()
+                    {
+                        ripple.removeClass('ripple--is-animated');
+                    }, 651);
+                });
+
+            scope.$on('$destroy', function()
+            {
+                $timeout.cancel(timer);
+                element.off();
+            });
+        }
+    }
+})();
 (function()
 {
     'use strict';
@@ -5644,156 +5644,6 @@
     'use strict';
 
     angular
-        .module('lumx.switch')
-        .directive('lxSwitch', lxSwitch)
-        .directive('lxSwitchLabel', lxSwitchLabel)
-        .directive('lxSwitchHelp', lxSwitchHelp);
-
-    function lxSwitch()
-    {
-        return {
-            restrict: 'E',
-            templateUrl: 'switch.html',
-            scope:
-            {
-                ngModel: '=',
-                name: '@?',
-                ngTrueValue: '@?',
-                ngFalseValue: '@?',
-                ngChange: '&?',
-                ngDisabled: '=?',
-                lxColor: '@?',
-                lxPosition: '@?',
-                lxTheme: '@?'
-            },
-            controller: LxSwitchController,
-            controllerAs: 'lxSwitch',
-            bindToController: true,
-            transclude: true,
-            replace: true
-        };
-    }
-
-    LxSwitchController.$inject = ['$scope', '$timeout', 'LxUtils'];
-
-    function LxSwitchController($scope, $timeout, LxUtils)
-    {
-        var lxSwitch = this;
-        var switchId;
-        var switchHasChildren;
-        var timer;
-
-        lxSwitch.getSwitchId = getSwitchId;
-        lxSwitch.getSwitchHasChildren = getSwitchHasChildren;
-        lxSwitch.setSwitchId = setSwitchId;
-        lxSwitch.setSwitchHasChildren = setSwitchHasChildren;
-        lxSwitch.triggerNgChange = triggerNgChange;
-
-        $scope.$on('$destroy', function()
-        {
-            $timeout.cancel(timer);
-        });
-
-        init();
-
-        ////////////
-
-        function getSwitchId()
-        {
-            return switchId;
-        }
-
-        function getSwitchHasChildren()
-        {
-            return switchHasChildren;
-        }
-
-        function init()
-        {
-            setSwitchId(LxUtils.generateUUID());
-            setSwitchHasChildren(false);
-
-            lxSwitch.ngTrueValue = angular.isUndefined(lxSwitch.ngTrueValue) ? true : lxSwitch.ngTrueValue;
-            lxSwitch.ngFalseValue = angular.isUndefined(lxSwitch.ngFalseValue) ? false : lxSwitch.ngFalseValue;
-            lxSwitch.lxColor = angular.isUndefined(lxSwitch.lxColor) ? 'accent' : lxSwitch.lxColor;
-            lxSwitch.lxPosition = angular.isUndefined(lxSwitch.lxPosition) ? 'left' : lxSwitch.lxPosition;
-        }
-
-        function setSwitchId(_switchId)
-        {
-            switchId = _switchId;
-        }
-
-        function setSwitchHasChildren(_switchHasChildren)
-        {
-            switchHasChildren = _switchHasChildren;
-        }
-
-        function triggerNgChange()
-        {
-            timer = $timeout(lxSwitch.ngChange);
-        }
-    }
-
-    function lxSwitchLabel()
-    {
-        return {
-            restrict: 'AE',
-            require: ['^lxSwitch', '^lxSwitchLabel'],
-            templateUrl: 'switch-label.html',
-            link: link,
-            controller: LxSwitchLabelController,
-            controllerAs: 'lxSwitchLabel',
-            bindToController: true,
-            transclude: true,
-            replace: true
-        };
-
-        function link(scope, element, attrs, ctrls)
-        {
-            ctrls[0].setSwitchHasChildren(true);
-            ctrls[1].setSwitchId(ctrls[0].getSwitchId());
-        }
-    }
-
-    function LxSwitchLabelController()
-    {
-        var lxSwitchLabel = this;
-        var switchId;
-
-        lxSwitchLabel.getSwitchId = getSwitchId;
-        lxSwitchLabel.setSwitchId = setSwitchId;
-
-        ////////////
-
-        function getSwitchId()
-        {
-            return switchId;
-        }
-
-        function setSwitchId(_switchId)
-        {
-            switchId = _switchId;
-        }
-    }
-
-    function lxSwitchHelp()
-    {
-        return {
-            restrict: 'AE',
-            require: '^lxSwitch',
-            templateUrl: 'switch-help.html',
-            transclude: true,
-            replace: true
-        };
-    }
-})();
-
-(function()
-{
-    'use strict';
-
-    angular
         .module('lumx.stepper')
         .directive('lxStepper', lxStepper)
         .directive('lxStep', lxStep)
@@ -6313,246 +6163,148 @@
     'use strict';
 
     angular
-        .module('lumx.text-field')
-        .directive('lxTextField', lxTextField);
+        .module('lumx.switch')
+        .directive('lxSwitch', lxSwitch)
+        .directive('lxSwitchLabel', lxSwitchLabel)
+        .directive('lxSwitchHelp', lxSwitchHelp);
 
-    lxTextField.$inject = ['$timeout'];
-
-    function lxTextField($timeout)
+    function lxSwitch()
     {
         return {
             restrict: 'E',
-            templateUrl: 'text-field.html',
+            templateUrl: 'switch.html',
             scope:
             {
-                allowClear: '=?lxAllowClear',
-                error: '=?lxError',
-                fixedLabel: '=?lxFixedLabel',
-                focus: '<?lxFocus',
-                icon: '@?lxIcon',
-                label: '@lxLabel',
+                ngModel: '=',
+                name: '@?',
+                ngTrueValue: '@?',
+                ngFalseValue: '@?',
+                ngChange: '&?',
                 ngDisabled: '=?',
-                hasPlaceholder: '=?lxHasPlaceholder',
-                theme: '@?lxTheme',
-                valid: '=?lxValid'
+                lxColor: '@?',
+                lxPosition: '@?',
+                lxTheme: '@?'
             },
-            link: link,
-            controller: LxTextFieldController,
-            controllerAs: 'lxTextField',
+            controller: LxSwitchController,
+            controllerAs: 'lxSwitch',
             bindToController: true,
-            replace: true,
-            transclude: true
+            transclude: true,
+            replace: true
         };
-
-        function link(scope, element, attrs, ctrl, transclude)
-        {
-            var backwardOneWay = ['icon', 'label', 'theme'];
-            var backwardTwoWay = ['error', 'fixedLabel', 'valid'];
-            var input;
-            var timer;
-
-            angular.forEach(backwardOneWay, function(attribute)
-            {
-                if (angular.isDefined(attrs[attribute]))
-                {
-                    attrs.$observe(attribute, function(newValue)
-                    {
-                        scope.lxTextField[attribute] = newValue;
-                    });
-                }
-            });
-
-            angular.forEach(backwardTwoWay, function(attribute)
-            {
-                if (angular.isDefined(attrs[attribute]))
-                {
-                    scope.$watch(function()
-                    {
-                        return scope.$parent.$eval(attrs[attribute]);
-                    }, function(newValue)
-                    {
-                        scope.lxTextField[attribute] = newValue;
-                    });
-                }
-            });
-
-            transclude(function()
-            {
-                input = element.find('textarea');
-
-                if (input[0])
-                {
-                    input.on('cut paste drop keydown', function()
-                    {
-                        timer = $timeout(ctrl.updateTextareaHeight);
-                    });
-                }
-                else
-                {
-                    input = element.find('input');
-                }
-
-                input.addClass('text-field__input');
-
-                ctrl.setInput(input);
-                ctrl.setModel(input.data('$ngModelController'));
-
-                input.on('focus', function()
-                {
-                    var phase = scope.$root.$$phase;
-
-                    if (phase === '$apply' || phase === '$digest')
-                    {
-                        ctrl.focusInput();
-                    }
-                    else
-                    {
-                        scope.$apply(ctrl.focusInput);
-                    }
-                });
-                input.on('blur', ctrl.blurInput);
-            });
-
-            scope.$on('$destroy', function()
-            {
-                $timeout.cancel(timer);
-                input.off();
-            });
-        }
     }
 
-    LxTextFieldController.$inject = ['$scope', '$timeout'];
+    LxSwitchController.$inject = ['$scope', '$timeout', 'LxUtils'];
 
-    function LxTextFieldController($scope, $timeout)
+    function LxSwitchController($scope, $timeout, LxUtils)
     {
-        var lxTextField = this;
-        var input;
-        var modelController;
+        var lxSwitch = this;
+        var switchId;
+        var switchHasChildren;
         var timer;
 
-        lxTextField.blurInput = blurInput;
-        lxTextField.clearInput = clearInput;
-        lxTextField.focusInput = focusInput;
-        lxTextField.hasValue = hasValue;
-        lxTextField.setInput = setInput;
-        lxTextField.setModel = setModel;
-        lxTextField.updateTextareaHeight = updateTextareaHeight;
-
-        $scope.$watch(function()
-        {
-            return modelController.$viewValue;
-        }, function(newValue, oldValue)
-        {
-            if (angular.isDefined(newValue) && newValue)
-            {
-                lxTextField.isActive = true;
-            }
-            else
-            {
-                lxTextField.isActive = false;
-            }
-
-            if (newValue !== oldValue && newValue)
-            {
-                updateTextareaHeight();
-            }
-        });
-
-        $scope.$watch(function()
-        {
-            return lxTextField.focus;
-        }, function(newValue, oldValue)
-        {
-            if (angular.isDefined(newValue) && newValue)
-            {
-                $timeout(function()
-                {
-                    input.focus();
-                    // Reset the value so we can re-focus the field later on if we want to.
-                    lxTextField.focus = false;
-                });
-            }
-        });
+        lxSwitch.getSwitchId = getSwitchId;
+        lxSwitch.getSwitchHasChildren = getSwitchHasChildren;
+        lxSwitch.setSwitchId = setSwitchId;
+        lxSwitch.setSwitchHasChildren = setSwitchHasChildren;
+        lxSwitch.triggerNgChange = triggerNgChange;
 
         $scope.$on('$destroy', function()
         {
             $timeout.cancel(timer);
         });
 
+        init();
+
         ////////////
 
-        function blurInput()
+        function getSwitchId()
         {
-            if (!hasValue())
-            {
-                $scope.$apply(function()
-                {
-                    lxTextField.isActive = false;
-                });
-            }
-
-            $scope.$apply(function()
-            {
-                lxTextField.isFocus = false;
-            });
+            return switchId;
         }
 
-        function clearInput(_event)
+        function getSwitchHasChildren()
         {
-            _event.stopPropagation();
-
-            modelController.$setViewValue(undefined);
-            modelController.$render();
-        }
-
-        function focusInput()
-        {
-            lxTextField.isActive = true;
-            lxTextField.isFocus = true;
-        }
-
-        function hasValue()
-        {
-            return angular.isDefined(input.val()) && input.val().length > 0;
+            return switchHasChildren;
         }
 
         function init()
         {
-            lxTextField.isActive = hasValue();
-            lxTextField.focus = angular.isDefined(lxTextField.focus) ? lxTextField.focus : false;
-            lxTextField.isFocus = lxTextField.focus;
+            setSwitchId(LxUtils.generateUUID());
+            setSwitchHasChildren(false);
+
+            lxSwitch.ngTrueValue = angular.isUndefined(lxSwitch.ngTrueValue) ? true : lxSwitch.ngTrueValue;
+            lxSwitch.ngFalseValue = angular.isUndefined(lxSwitch.ngFalseValue) ? false : lxSwitch.ngFalseValue;
+            lxSwitch.lxColor = angular.isUndefined(lxSwitch.lxColor) ? 'accent' : lxSwitch.lxColor;
+            lxSwitch.lxPosition = angular.isUndefined(lxSwitch.lxPosition) ? 'left' : lxSwitch.lxPosition;
         }
 
-        function setInput(_input)
+        function setSwitchId(_switchId)
         {
-            input = _input;
-
-            timer = $timeout(init);
+            switchId = _switchId;
         }
 
-        function setModel(_modelControler)
+        function setSwitchHasChildren(_switchHasChildren)
         {
-            modelController = _modelControler;
+            switchHasChildren = _switchHasChildren;
         }
 
-        function updateTextareaHeight()
+        function triggerNgChange()
         {
-            if (!input.is('textarea'))
-            {
-                return;
-            }
-
-            var tmpTextArea = angular.element('<textarea class="text-field__input" style="width: ' + input.width() + 'px;">' + input.val() + '</textarea>');
-
-            tmpTextArea.appendTo('body');
-
-            input.css(
-            {
-                height: tmpTextArea[0].scrollHeight + 'px'
-            });
-
-            tmpTextArea.remove();
+            timer = $timeout(lxSwitch.ngChange);
         }
+    }
+
+    function lxSwitchLabel()
+    {
+        return {
+            restrict: 'AE',
+            require: ['^lxSwitch', '^lxSwitchLabel'],
+            templateUrl: 'switch-label.html',
+            link: link,
+            controller: LxSwitchLabelController,
+            controllerAs: 'lxSwitchLabel',
+            bindToController: true,
+            transclude: true,
+            replace: true
+        };
+
+        function link(scope, element, attrs, ctrls)
+        {
+            ctrls[0].setSwitchHasChildren(true);
+            ctrls[1].setSwitchId(ctrls[0].getSwitchId());
+        }
+    }
+
+    function LxSwitchLabelController()
+    {
+        var lxSwitchLabel = this;
+        var switchId;
+
+        lxSwitchLabel.getSwitchId = getSwitchId;
+        lxSwitchLabel.setSwitchId = setSwitchId;
+
+        ////////////
+
+        function getSwitchId()
+        {
+            return switchId;
+        }
+
+        function setSwitchId(_switchId)
+        {
+            switchId = _switchId;
+        }
+    }
+
+    function lxSwitchHelp()
+    {
+        return {
+            restrict: 'AE',
+            require: '^lxSwitch',
+            templateUrl: 'switch-help.html',
+            transclude: true,
+            replace: true
+        };
     }
 })();
 
@@ -6922,6 +6674,254 @@
             replace: true,
             transclude: true
         };
+    }
+})();
+
+(function()
+{
+    'use strict';
+
+    angular
+        .module('lumx.text-field')
+        .directive('lxTextField', lxTextField);
+
+    lxTextField.$inject = ['$timeout'];
+
+    function lxTextField($timeout)
+    {
+        return {
+            restrict: 'E',
+            templateUrl: 'text-field.html',
+            scope:
+            {
+                allowClear: '=?lxAllowClear',
+                error: '=?lxError',
+                fixedLabel: '=?lxFixedLabel',
+                focus: '<?lxFocus',
+                icon: '@?lxIcon',
+                label: '@lxLabel',
+                ngDisabled: '=?',
+                hasPlaceholder: '=?lxHasPlaceholder',
+                theme: '@?lxTheme',
+                valid: '=?lxValid'
+            },
+            link: link,
+            controller: LxTextFieldController,
+            controllerAs: 'lxTextField',
+            bindToController: true,
+            replace: true,
+            transclude: true
+        };
+
+        function link(scope, element, attrs, ctrl, transclude)
+        {
+            var backwardOneWay = ['icon', 'label', 'theme'];
+            var backwardTwoWay = ['error', 'fixedLabel', 'valid'];
+            var input;
+            var timer;
+
+            angular.forEach(backwardOneWay, function(attribute)
+            {
+                if (angular.isDefined(attrs[attribute]))
+                {
+                    attrs.$observe(attribute, function(newValue)
+                    {
+                        scope.lxTextField[attribute] = newValue;
+                    });
+                }
+            });
+
+            angular.forEach(backwardTwoWay, function(attribute)
+            {
+                if (angular.isDefined(attrs[attribute]))
+                {
+                    scope.$watch(function()
+                    {
+                        return scope.$parent.$eval(attrs[attribute]);
+                    }, function(newValue)
+                    {
+                        scope.lxTextField[attribute] = newValue;
+                    });
+                }
+            });
+
+            transclude(function()
+            {
+                input = element.find('textarea');
+
+                if (input[0])
+                {
+                    input.on('cut paste drop keydown', function()
+                    {
+                        timer = $timeout(ctrl.updateTextareaHeight);
+                    });
+                }
+                else
+                {
+                    input = element.find('input');
+                }
+
+                input.addClass('text-field__input');
+
+                ctrl.setInput(input);
+                ctrl.setModel(input.data('$ngModelController'));
+
+                input.on('focus', function()
+                {
+                    var phase = scope.$root.$$phase;
+
+                    if (phase === '$apply' || phase === '$digest')
+                    {
+                        ctrl.focusInput();
+                    }
+                    else
+                    {
+                        scope.$apply(ctrl.focusInput);
+                    }
+                });
+                input.on('blur', ctrl.blurInput);
+            });
+
+            scope.$on('$destroy', function()
+            {
+                $timeout.cancel(timer);
+                input.off();
+            });
+        }
+    }
+
+    LxTextFieldController.$inject = ['$scope', '$timeout'];
+
+    function LxTextFieldController($scope, $timeout)
+    {
+        var lxTextField = this;
+        var input;
+        var modelController;
+        var timer;
+
+        lxTextField.blurInput = blurInput;
+        lxTextField.clearInput = clearInput;
+        lxTextField.focusInput = focusInput;
+        lxTextField.hasValue = hasValue;
+        lxTextField.setInput = setInput;
+        lxTextField.setModel = setModel;
+        lxTextField.updateTextareaHeight = updateTextareaHeight;
+
+        $scope.$watch(function()
+        {
+            return modelController.$viewValue;
+        }, function(newValue, oldValue)
+        {
+            if (angular.isDefined(newValue) && newValue)
+            {
+                lxTextField.isActive = true;
+            }
+            else
+            {
+                lxTextField.isActive = false;
+            }
+
+            if (newValue !== oldValue && newValue)
+            {
+                updateTextareaHeight();
+            }
+        });
+
+        $scope.$watch(function()
+        {
+            return lxTextField.focus;
+        }, function(newValue, oldValue)
+        {
+            if (angular.isDefined(newValue) && newValue)
+            {
+                $timeout(function()
+                {
+                    input.focus();
+                    // Reset the value so we can re-focus the field later on if we want to.
+                    lxTextField.focus = false;
+                });
+            }
+        });
+
+        $scope.$on('$destroy', function()
+        {
+            $timeout.cancel(timer);
+        });
+
+        ////////////
+
+        function blurInput()
+        {
+            if (!hasValue())
+            {
+                $scope.$apply(function()
+                {
+                    lxTextField.isActive = false;
+                });
+            }
+
+            $scope.$apply(function()
+            {
+                lxTextField.isFocus = false;
+            });
+        }
+
+        function clearInput(_event)
+        {
+            _event.stopPropagation();
+
+            modelController.$setViewValue(undefined);
+            modelController.$render();
+        }
+
+        function focusInput()
+        {
+            lxTextField.isActive = true;
+            lxTextField.isFocus = true;
+        }
+
+        function hasValue()
+        {
+            return angular.isDefined(input.val()) && input.val().length > 0;
+        }
+
+        function init()
+        {
+            lxTextField.isActive = hasValue();
+            lxTextField.focus = angular.isDefined(lxTextField.focus) ? lxTextField.focus : false;
+            lxTextField.isFocus = lxTextField.focus;
+        }
+
+        function setInput(_input)
+        {
+            input = _input;
+
+            timer = $timeout(init);
+        }
+
+        function setModel(_modelControler)
+        {
+            modelController = _modelControler;
+        }
+
+        function updateTextareaHeight()
+        {
+            if (!input.is('textarea'))
+            {
+                return;
+            }
+
+            var tmpTextArea = angular.element('<textarea class="text-field__input" style="width: ' + input.width() + 'px;">' + input.val() + '</textarea>');
+
+            tmpTextArea.appendTo('body');
+
+            input.css(
+            {
+                height: tmpTextArea[0].scrollHeight + 'px'
+            });
+
+            tmpTextArea.remove();
+        }
     }
 })();
 
@@ -7673,7 +7673,7 @@ angular.module("lumx.icon").run(['$templateCache', function(a) { a.put('icon.htm
 angular.module("lumx.data-table").run(['$templateCache', function(a) { a.put('data-table.html', '<div class="data-table-container">\n' +
     '    <table class="data-table"\n' +
     '           ng-class="{ \'data-table--bulk\': lxDataTable.bulk,\n' +
-    '                       \'data-table--no-border\': !lxDataTable.border,\n' +
+    '                       \'data-table--border\': lxDataTable.border,\n' +
     '                       \'data-table--thumbnail\': lxDataTable.thumbnail }">\n' +
     '        <thead>\n' +
     '            <tr ng-class="{ \'data-table__selectable-row\': lxDataTable.selectable,\n' +
