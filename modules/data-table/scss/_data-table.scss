@@ -88,10 +88,6 @@
         padding-bottom: $base-spacing-unit;
     }
 
-    &.data-table--thumbnail td {
-        height: 56px;
-    }
-
     tr:last-child td {
         border-bottom: none;
     }
@@ -119,7 +115,6 @@
                 margin: 0;
             }
         }
-    }
 
     .data-table.data-table--thumbnail .data-table__selectable-row:not(.data-table__selectable-row--is-disabled):not(.data-table__selectable-row--is-selected) {
         td:first-child {

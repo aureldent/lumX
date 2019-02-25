@@ -15,7 +15,6 @@
             {
                 activable: '=?lxActivable',
                 border: '=?lxBorder',
-                bulk: '=?lxBulk',
                 selectable: '=?lxSelectable',
                 thumbnail: '=?lxThumbnail',
                 tbody: '=lxTbody',
@@ -46,7 +45,6 @@
 
         lxDataTable.areAllRowsSelected = areAllRowsSelected;
         lxDataTable.border = angular.isUndefined(lxDataTable.border) ? true : lxDataTable.border;
-        lxDataTable.bulk = angular.isUndefined(lxDataTable.bulk) ? true : lxDataTable.bulk;
         lxDataTable.sort = sort;
         lxDataTable.toggleActivation = toggleActivation;
         lxDataTable.toggleAllSelected = toggleAllSelected;
@@ -256,11 +254,6 @@
 
         function toggleAllSelected()
         {
-            if (!lxDataTable.bulk)
-            {
-                return;
-            }
-
             if (lxDataTable.allRowsSelected)
             {
                 _unselectAll();
