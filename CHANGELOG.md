@@ -1,13 +1,5 @@
 # Changelog
 
-## v1.7.43:
-*No major changes.*
-
-
-## v1.7.42:
-*No major changes.*
-
-
 ## v1.7.41:
 *No major changes.*
 
